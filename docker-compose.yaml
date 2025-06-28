@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  backend:
+    build: 
+      context: ./kalakriti-cms-backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./kalakriti-cms-backend/app:/app
+    environment:
+      - PYTHONPATH=/app
+      - DATABASE_URL=mysql://kalakriti_user:kalakriti_password@db/kalakriti_db
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  db:
+    image: mysql:8.0
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_DATABASE=kalakriti_db
+      - MYSQL_USER=kalakriti_user
+      - MYSQL_PASSWORD=kalakriti_password
+      - MYSQL_ROOT_PASSWORD=root_password
+    volumes:
+      - mysql_data:/var/lib/mysql
+    restart: unless-stopped
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    ports:
+      - "8080:80"
+    environment:
+      - PMA_HOST=db
+      - PMA_USER=root
+      - PMA_PASSWORD=root_password
+    depends_on:
+      - db
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
