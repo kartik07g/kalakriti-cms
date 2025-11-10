@@ -1,269 +1,516 @@
 
-import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import React, { useEffect, useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { 
-  Trophy, 
-  Calendar, 
-  FileText, 
-  Download, 
-  User, 
-  Mail, 
-  Phone, 
-  MapPin,
-  Image,
-  Award,
-  Clock
-} from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
+import { Award, Calendar, FileText, Download, Edit2, Save, X, CheckCircle2, Upload } from 'lucide-react';
+import { toast } from 'sonner';
+import jsPDF from 'jspdf';
+import { useNavigate } from 'react-router-dom';
 
 const UserDashboard = () => {
+  const navigate = useNavigate();
+  const [isEditing, setIsEditing] = useState(false);
   const [userData, setUserData] = useState<any>(null);
-  const [submissionData, setSubmissionData] = useState<any>(null);
+  const [originalUserData, setOriginalUserData] = useState<any>(null);
+  const [submissions, setSubmissions] = useState<any[]>([]);
+  const [hasParticipated, setHasParticipated] = useState(false);
 
   useEffect(() => {
-    // Load user data
-    const user = localStorage.getItem('kalakriti-user');
-    const submission = localStorage.getItem('kalakriti-submission');
-    
-    if (user) {
-      setUserData(JSON.parse(user));
+    // Load user data from localStorage
+    const storedUser = localStorage.getItem('kalakriti-user');
+    if (storedUser) {
+      const user = JSON.parse(storedUser);
+      setUserData(user);
+      setOriginalUserData(user);
+      setHasParticipated(!!user.user_id || user.hasParticipated);
     }
     
-    if (submission) {
-      setSubmissionData(JSON.parse(submission));
+    // Load submissions from localStorage
+    const storedSubmissions = localStorage.getItem('kalakriti-submissions');
+    if (storedSubmissions && userData) {
+      const allSubmissions = JSON.parse(storedSubmissions);
+      const userSubmissions = allSubmissions.filter((s: any) => s.email === userData.email);
+      setSubmissions(userSubmissions);
     }
   }, []);
 
-  const getEventName = (eventType: string) => {
-    const eventNames = {
-      art: 'Art Competition',
-      photography: 'Photography Contest',
-      mehndi: 'Mehndi Championship',
-      rangoli: 'Rangoli Festival',
-      dance: 'Dance Competition',
-      singing: 'Singing Contest'
-    };
-    return eventNames[eventType as keyof typeof eventNames] || eventType;
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setUserData((prev: any) => ({ ...prev, [name]: value }));
   };
 
-  const getEventColor = (eventType: string) => {
-    const colors = {
-      art: 'from-red-500 to-pink-600',
-      photography: 'from-blue-500 to-cyan-600',
-      mehndi: 'from-orange-500 to-red-500',
-      rangoli: 'from-purple-500 to-pink-500',
-      dance: 'from-green-500 to-teal-600',
-      singing: 'from-indigo-500 to-purple-600'
-    };
-    return colors[eventType as keyof typeof colors] || 'from-gray-500 to-gray-600';
+  const handleSaveProfile = async () => {
+    const updatedFields: any = {};
+    const editableFields = ['full_name', 'phone_number', 'age', 'address', 'city', 'state', 'previous_experience'];
+    
+    editableFields.forEach(field => {
+      if (userData[field] !== originalUserData[field]) {
+        updatedFields[field] = userData[field];
+      }
+    });
+
+    if (Object.keys(updatedFields).length === 0) {
+      setIsEditing(false);
+      toast.info('No changes to save');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('kalakriti-token');
+      const response = await fetch('/v1/backend/users', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(updatedFields)
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update profile');
+      }
+
+      localStorage.setItem('kalakriti-user', JSON.stringify(userData));
+      setOriginalUserData(userData);
+      setIsEditing(false);
+      toast.success('Profile updated successfully!');
+    } catch (error) {
+      toast.error('Failed to update profile. Please try again.');
+      console.error('Profile update error:', error);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setUserData(originalUserData);
+    setIsEditing(false);
+  };
+
+  const handleDownloadCertificate = () => {
+    const results = JSON.parse(localStorage.getItem('kalakriti-event-results') || '[]');
+    let userResult = null;
+    let position = '';
+    let category = '';
+
+    // Find user's result
+    for (const result of results) {
+      for (const [cat, entries] of Object.entries(result.results || {})) {
+        const entry = (entries as any[]).find((e: any) => e.participantId === userData.contestantId);
+        if (entry) {
+          userResult = result;
+          position = entry.rank || entry.position;
+          category = cat;
+          break;
+        }
+      }
+      if (userResult) break;
+    }
+
+    if (!userResult) {
+      toast.error('Certificate not available. Results must be declared and you must be a winner.');
+      return;
+    }
+
+    // Generate certificate
+    const doc = new jsPDF({
+      orientation: 'landscape',
+      unit: 'mm',
+      format: 'a4'
+    });
+
+    doc.setFillColor(248, 250, 252);
+    doc.rect(0, 0, 297, 210, 'F');
+    doc.setDrawColor(139, 92, 246);
+    doc.setLineWidth(3);
+    doc.rect(10, 10, 277, 190);
+    doc.setDrawColor(251, 191, 36);
+    doc.setLineWidth(1);
+    doc.rect(15, 15, 267, 180);
+    doc.setFontSize(40);
+    doc.setTextColor(88, 28, 135);
+    doc.text('Certificate of Achievement', 148.5, 50, { align: 'center' });
+    doc.setFontSize(16);
+    doc.setTextColor(100, 116, 139);
+    doc.text('This is to certify that', 148.5, 70, { align: 'center' });
+    doc.setFontSize(32);
+    doc.setTextColor(30, 41, 59);
+    doc.text(userData.full_name, 148.5, 90, { align: 'center' });
+    doc.setFontSize(14);
+    doc.setTextColor(100, 116, 139);
+    doc.text(`has secured ${position} position in ${category}`, 148.5, 105, { align: 'center' });
+    doc.text(`at Kalakriti ${userResult.eventType.charAt(0).toUpperCase() + userResult.eventType.slice(1)} Competition`, 148.5, 115, { align: 'center' });
+    doc.text(`${userResult.season} - ${new Date(userResult.publishDate).getFullYear()}`, 148.5, 125, { align: 'center' });
+    doc.setFontSize(12);
+    doc.setTextColor(139, 92, 246);
+    doc.text('Kalakriti Events', 148.5, 165, { align: 'center' });
+    doc.setFontSize(10);
+    doc.setTextColor(100, 116, 139);
+    doc.text(`Issue Date: ${new Date().toLocaleDateString()}`, 148.5, 175, { align: 'center' });
+    doc.text(`User ID: ${userData.user_id}`, 148.5, 182, { align: 'center' });
+    doc.save(`Kalakriti_Certificate_${userData.user_id}.pdf`);
+    toast.success('Certificate downloaded successfully!');
   };
 
   if (!userData) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Loading Dashboard...</h1>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-      >
-        {/* Header */}
+      <div className="max-w-6xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Welcome to Your Dashboard</h1>
-          <p className="text-gray-600">
-            Contestant ID: <span className="font-mono font-bold text-blue-600">{userData.contestantId}</span>
-          </p>
+          <div className="flex items-start justify-between">
+            <div>
+              <h1 className="text-3xl font-heading font-bold text-kalakriti-primary mb-2">
+                My Dashboard
+              </h1>
+              <p className="text-gray-600">
+                {hasParticipated 
+                  ? "Welcome back! Here's an overview of your activities and submissions."
+                  : "Welcome! Get started by participating in your first event."}
+              </p>
+            </div>
+            {hasParticipated && userData?.user_id && (
+              <Badge variant="default" className="text-lg px-4 py-2">
+                <Award className="h-4 w-4 mr-2" />
+                {userData.user_id}
+              </Badge>
+            )}
+          </div>
         </div>
+        
+        {/* Status Banner for Non-Participants */}
+        {!hasParticipated && (
+          <Card className="mb-6 border-blue-500 bg-gradient-to-r from-blue-50 to-purple-50">
+            <CardContent className="pt-6">
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-blue-100 rounded-full">
+                  <Upload className="h-6 w-6 text-blue-600" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    Start Your Creative Journey
+                  </h3>
+                  <p className="text-gray-700 mb-4">
+                    Participate in an event to get your unique Contestant ID and unlock full dashboard features including certificate downloads, result tracking, and submission history.
+                  </p>
+                  <Button 
+                    onClick={() => navigate('/events')}
+                    className="bg-kalakriti-secondary hover:bg-blue-600"
+                  >
+                    <Award className="h-4 w-4 mr-2" />
+                    Browse Events & Participate
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Profile Section */}
-          <div className="lg:col-span-1">
-            <Card className="shadow-lg">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <User className="h-5 w-5" />
-                  Profile Information
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {submissionData ? (
-                  <>
-                    <div className="text-center mb-6">
-                      <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-2xl font-bold mx-auto mb-3">
-                        {submissionData.firstName?.[0]}{submissionData.lastName?.[0]}
-                      </div>
-                      <h3 className="font-semibold text-lg">
-                        {submissionData.firstName} {submissionData.lastName}
-                      </h3>
-                    </div>
-                    
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2 text-sm">
-                        <Mail className="h-4 w-4 text-gray-400" />
-                        <span>{submissionData.email}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm">
-                        <Phone className="h-4 w-4 text-gray-400" />
-                        <span>{submissionData.phone}</span>
-                      </div>
-                      {submissionData.city && (
-                        <div className="flex items-center gap-2 text-sm">
-                          <MapPin className="h-4 w-4 text-gray-400" />
-                          <span>{submissionData.city}, {submissionData.state}</span>
-                        </div>
-                      )}
-                    </div>
-                  </>
-                ) : (
-                  <div className="text-center text-gray-500">
-                    <User className="h-12 w-12 mx-auto mb-2 text-gray-300" />
-                    <p>Complete your submission to see profile details</p>
+          {/* Profile Information */}
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    Profile Information
+                    {hasParticipated && (
+                      <Badge variant="secondary" className="text-xs">
+                        <CheckCircle2 className="h-3 w-3 mr-1" />
+                        Participant
+                      </Badge>
+                    )}
+                  </CardTitle>
+                  <CardDescription>
+                    {isEditing ? "Update your personal details" : "Your account information"}
+                  </CardDescription>
+                </div>
+                {!isEditing ? (
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setIsEditing(true)}
+                  >
+                    <Edit2 className="h-4 w-4 mr-2" />
+                    Edit
+                  </Button>
+                ) : isEditing ? (
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={handleCancelEdit}
+                    >
+                      <X className="h-4 w-4 mr-2" />
+                      Cancel
+                    </Button>
+                    <Button 
+                      size="sm"
+                      onClick={handleSaveProfile}
+                      className="bg-kalakriti-secondary hover:bg-blue-600"
+                      disabled={isEditing && Object.keys(userData).every(key => userData[key] === originalUserData[key])}
+                    >
+                      <Save className="h-4 w-4 mr-2" />
+                      Save
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="full_name">Full Name</Label>
+                    <Input
+                      id="full_name"
+                      name="full_name"
+                      value={userData?.full_name || ''}
+                      onChange={handleInputChange}
+                      disabled={!isEditing}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      name="email"
+                      value={userData?.email || ''}
+                      disabled
+                      className="bg-gray-50"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Cannot be edited</p>
+                  </div>
+                </div>
+                
+                {hasParticipated && userData?.user_id && (
+                  <div>
+                    <Label htmlFor="user_id">User ID</Label>
+                    <Input
+                      id="user_id"
+                      name="user_id"
+                      value={userData?.user_id || 'Not assigned yet'}
+                      disabled
+                      className="bg-gray-50 font-mono font-bold"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Cannot be edited</p>
                   </div>
                 )}
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Current Participation */}
-            {submissionData && (
-              <Card className="shadow-lg">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Trophy className="h-5 w-5" />
-                    Current Participation
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className={`bg-gradient-to-r ${getEventColor(submissionData.eventType)} p-6 rounded-lg text-white mb-4`}>
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="text-xl font-bold mb-1">
-                          Kalakriti {getEventName(submissionData.eventType)}
-                        </h3>
-                        <p className="text-white/80">Season 1 • 2025</p>
-                      </div>
-                      <Badge className="bg-white/20 text-white border-white/30">
-                        Submitted
-                      </Badge>
-                    </div>
+                
+                <Separator />
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="phone_number">Phone Number</Label>
+                    <Input
+                      id="phone_number"
+                      name="phone_number"
+                      value={userData?.phone_number || ''}
+                      onChange={handleInputChange}
+                      disabled={!isEditing}
+                    />
                   </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <FileText className="h-4 w-4 text-gray-400" />
-                        <span className="text-sm">
-                          <strong>Artwork Title:</strong> {submissionData.artworkTitle || 'Not specified'}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Image className="h-4 w-4 text-gray-400" />
-                        <span className="text-sm">
-                          <strong>Files Submitted:</strong> {submissionData.numberOfArtworks}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4 text-gray-400" />
-                        <span className="text-sm">
-                          <strong>Submitted:</strong> {new Date(submissionData.submittedAt).toLocaleDateString()}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Clock className="h-4 w-4 text-gray-400" />
-                        <span className="text-sm">
-                          <strong>Status:</strong> Under Review
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {submissionData.artworkDescription && (
-                    <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                      <p className="text-sm"><strong>Description:</strong></p>
-                      <p className="text-sm text-gray-600 mt-1">{submissionData.artworkDescription}</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Quick Actions */}
-            <Card className="shadow-lg">
-              <CardHeader>
-                <CardTitle>Quick Actions</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Button variant="outline" className="h-auto p-4 flex flex-col items-center gap-2">
-                    <Download className="h-6 w-6" />
-                    <span>Download Certificate</span>
-                    <span className="text-xs text-gray-500">Available after results</span>
-                  </Button>
-                  <Button variant="outline" className="h-auto p-4 flex flex-col items-center gap-2">
-                    <Award className="h-6 w-6" />
-                    <span>View Results</span>
-                    <span className="text-xs text-gray-500">Coming soon</span>
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Recent Activity */}
-            <Card className="shadow-lg">
-              <CardHeader>
-                <CardTitle>Recent Activity</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
-                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">Account created successfully</p>
-                      <p className="text-xs text-gray-500">
-                        {new Date(userData.signedUpAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  {submissionData && (
-                    <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">Artwork submitted for review</p>
-                        <p className="text-xs text-gray-500">
-                          {new Date(submissionData.submittedAt).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                  
-                  <div className="flex items-center gap-3 p-3 bg-yellow-50 rounded-lg">
-                    <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">Payment completed</p>
-                      <p className="text-xs text-gray-500">Registration fee processed</p>
-                    </div>
+                  <div>
+                    <Label htmlFor="age">Age</Label>
+                    <Input
+                      id="age"
+                      name="age"
+                      value={userData?.age || ''}
+                      onChange={handleInputChange}
+                      disabled={!isEditing}
+                    />
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          </div>
+                
+                <div>
+                  <Label htmlFor="address">Address</Label>
+                  <Input
+                    id="address"
+                    name="address"
+                    value={userData?.address || ''}
+                    onChange={handleInputChange}
+                    disabled={!isEditing}
+                    placeholder={!hasParticipated ? "Complete after participating" : ""}
+                  />
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="city">City</Label>
+                    <Input
+                      id="city"
+                      name="city"
+                      value={userData?.city || ''}
+                      onChange={handleInputChange}
+                      disabled={!isEditing}
+                      placeholder={!hasParticipated ? "N/A" : ""}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="state">State</Label>
+                    <Input
+                      id="state"
+                      name="state"
+                      value={userData?.state || ''}
+                      onChange={handleInputChange}
+                      disabled={!isEditing}
+                      placeholder={!hasParticipated ? "N/A" : ""}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="previous_experience">Previous Experience</Label>
+                    <Input
+                      id="previous_experience"
+                      name="previous_experience"
+                      value={userData?.previous_experience || ''}
+                      onChange={handleInputChange}
+                      disabled={!isEditing}
+                      placeholder={!hasParticipated ? "N/A" : ""}
+                    />
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Quick Actions */}
+          <Card className="border-2">
+            <CardHeader>
+              <CardTitle>Quick Actions</CardTitle>
+              <CardDescription>Access key features</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {hasParticipated ? (
+                <>
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start hover:bg-blue-50"
+                    onClick={handleDownloadCertificate}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Download Certificate
+                  </Button>
+                  
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start hover:bg-purple-50"
+                    onClick={() => navigate('/results')}
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    View Results
+                  </Button>
+                  
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start hover:bg-green-50"
+                    onClick={() => navigate('/events')}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Submit New Artwork
+                  </Button>
+                </>
+              ) : (
+                <div className="text-center py-4">
+                  <Award className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-sm text-gray-600 mb-4">
+                    Participate in an event to unlock dashboard features
+                  </p>
+                  <Button 
+                    className="w-full bg-kalakriti-secondary hover:bg-blue-600"
+                    onClick={() => navigate('/events')}
+                  >
+                    Explore Events
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
-      </motion.div>
+
+        {/* Submissions History */}
+        {hasParticipated && (
+          <Card className="mt-6">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    My Submissions
+                    {submissions.length > 0 && (
+                      <Badge variant="secondary">{submissions.length}</Badge>
+                    )}
+                  </CardTitle>
+                  <CardDescription>
+                    Track all your competition entries
+                  </CardDescription>
+                </div>
+                <Button 
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate('/events')}
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  New Submission
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {submissions.length > 0 ? (
+                <div className="space-y-4">
+                  {submissions.map((submission, index) => (
+                    <div 
+                      key={index}
+                      className="p-4 border-2 rounded-lg hover:border-blue-300 hover:shadow-md transition-all"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <h4 className="font-semibold text-lg">{submission.title}</h4>
+                            <Badge variant="outline" className="capitalize">
+                              {submission.eventType}
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-gray-600 mb-3">{submission.description}</p>
+                          <div className="flex flex-wrap gap-3 text-xs">
+                            <span className="flex items-center text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                              <Award className="h-3 w-3 mr-1" />
+                              {submission.contestantId || 'Processing'}
+                            </span>
+                            <span className="flex items-center text-green-600 bg-green-50 px-2 py-1 rounded">
+                              <Calendar className="h-3 w-3 mr-1" />
+                              {new Date(submission.submittedAt).toLocaleDateString()}
+                            </span>
+                            <span className="flex items-center text-purple-600 bg-purple-50 px-2 py-1 rounded">
+                              <FileText className="h-3 w-3 mr-1" />
+                              {submission.files?.length || submission.numberOfArtworks} artwork(s)
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed">
+                  <FileText className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                  <p className="text-gray-600 font-medium mb-2">No submissions yet</p>
+                  <p className="text-sm text-gray-500 mb-4">Start your creative journey by submitting your first artwork</p>
+                  <Button 
+                    className="bg-kalakriti-secondary hover:bg-blue-600"
+                    onClick={() => navigate('/events')}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Submit Your First Artwork
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </div>
   );
 };

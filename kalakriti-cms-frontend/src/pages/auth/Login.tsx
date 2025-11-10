@@ -9,8 +9,9 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Loader2, Mail, Lock, ArrowRight } from 'lucide-react';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
-import { api } from '@/lib/api';
+
 import { toast } from 'sonner';
+import api from '@/lib/axios';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -42,10 +43,24 @@ const Login = () => {
     try {
       setLoading(true);
       
-      // Call login API
-      await api.auth.login(formData.email, formData.password);
+      // API call to signin endpoint
+      const response = await api.post('/signin', {
+        email: formData.email,
+        password: formData.password
+      });
       
-      toast.success('Login successful!');
+      const result = response.data;
+      
+      // Store auth token and user data
+      if (result.access_token) {
+        localStorage.setItem('kalakriti-token', result.access_token);
+      }
+      
+      if (result.user) {
+        localStorage.setItem('kalakriti-user', JSON.stringify(result.user));
+      }
+      
+      toast.success(result.message || 'Login successful!');
       
       // Check if there's a redirectPath or stored payment intent
       const paymentIntent = localStorage.getItem('kalakriti-payment-intent');

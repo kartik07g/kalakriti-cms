@@ -1,45 +1,83 @@
 version: '3.8'
 
 services:
+
+  frontend:
+    build:
+      context: ./kalakriti-cms-frontend
+      dockerfile: Dockerfile
+    image: kalakriti-cms-frontend:latest
+    container_name: kalakriti-cms-frontend
+    ports:
+      - "3001:80"  # Map host 3000 to container 8080 (Vite configured port)
+    volumes:
+      - ./kalakriti-cms-frontend:/app
+      - /app/node_modules  # Preserve container's node_modules
+    environment:
+      - NODE_ENV=development
+      - WATCHPACK_POLLING=true
+      - CHOKIDAR_USEPOLLING=true
+      - VITE_BACKEND_URL=http://localhost:8000/v1/backend
+    stdin_open: true  # Required for Vite's HMR
+    tty: true         # Required for Vite's HMR
+    networks:
+      - kalakriti-network
+
   backend:
     build: 
       context: ./kalakriti-cms-backend
       dockerfile: Dockerfile
+    image: kalakriti-cms-backend:latest
+    container_name: kalakriti-cms-backend
     ports:
       - "8000:8000"
     volumes:
-      - ./kalakriti-cms-backend/app:/app
+      - ./kalakriti-cms-backend:/app
     environment:
-      - PYTHONPATH=/app
-      - DATABASE_URL=mysql://kalakriti_user:kalakriti_password@db/kalakriti_db
+      - DATABASE_URL=postgresql://kalakriti-cms:kalakriti-cms@db:5432/kalakriti_cms
+      - ENVIRONMENT=local
     depends_on:
       - db
-    restart: unless-stopped
+    command: uvicorn api:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - kalakriti-network
 
   db:
-    image: mysql:8.0
+    image: postgres:15
+    container_name: postgres
+    restart: always
     ports:
-      - "3306:3306"
+      - "5432:5432"
     environment:
-      - MYSQL_DATABASE=kalakriti_db
-      - MYSQL_USER=kalakriti_user
-      - MYSQL_PASSWORD=kalakriti_password
-      - MYSQL_ROOT_PASSWORD=root_password
+      POSTGRES_USER: kalakriti-cms
+      POSTGRES_PASSWORD: kalakriti-cms
+      POSTGRES_DB: kalakriti_cms
     volumes:
-      - mysql_data:/var/lib/mysql
-    restart: unless-stopped
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kalakriti-cms -d kalakriti_cms"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - kalakriti-network
 
-  phpmyadmin:
-    image: phpmyadmin/phpmyadmin
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: kalakriti_pgadmin
+    restart: always
     ports:
-      - "8080:80"
+      - "5050:80"
     environment:
-      - PMA_HOST=db
-      - PMA_USER=root
-      - PMA_PASSWORD=root_password
-    depends_on:
-      - db
-    restart: unless-stopped
+      PGADMIN_DEFAULT_EMAIL: admin@kalakriti.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+
+networks:
+  kalakriti-network:
+    driver: bridge
 
 volumes:
-  mysql_data:
+  pgadmin_data:
+  postgres_data:

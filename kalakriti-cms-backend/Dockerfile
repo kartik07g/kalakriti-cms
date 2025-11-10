@@ -1,16 +1,22 @@
-# Dockerfile for kalakriti-cms-backend
-FROM python:3.9
+# Use official Python image
+FROM python:3.11-slim
 
+# Install system dependencies and set timezone
+RUN apt-get update && apt-get install -y tzdata && rm -rf /var/lib/apt/lists/*
+RUN ln -snf /usr/share/zoneinfo/IST /etc/localtime && echo IST > /etc/timezone
+
+# Set working directory
 WORKDIR /app
 
+# Copy requirements.txt and install dependencies
 COPY requirements.txt .
-RUN apt-get update && apt-get install -y default-libmysqlclient-dev && \
-    pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
+# Copy application code
 COPY . .
 
-# Add wait-for-it script
-COPY wait-for-it.sh /wait-for-it.sh
-RUN chmod +x /wait-for-it.sh
+# Expose port
+EXPOSE 8000
 
-CMD ["/wait-for-it.sh", "db:3306", "--", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run FastAPI with Uvicorn
+CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
