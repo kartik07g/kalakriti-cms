@@ -5,22 +5,19 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Shield, Lock, User } from 'lucide-react';
+import { Shield, Lock, Mail } from 'lucide-react';
 import { toast } from 'sonner';
+import api from '@/lib/axios';
 
 const AdminLogin = () => {
   const navigate = useNavigate();
   const [credentials, setCredentials] = useState({
-    username: '',
+    email: '',
     password: ''
   });
   const [loading, setLoading] = useState(false);
 
-  // Test credentials
-  const testCredentials = {
-    username: 'admin',
-    password: 'kalakriti@admin2025'
-  };
+
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setCredentials(prev => ({
@@ -31,23 +28,38 @@ const AdminLogin = () => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (credentials.email !== 'admin@admin.com') {
+      toast.error('Access denied. Admin email required.');
+      return;
+    }
+    
     setLoading(true);
 
-    // Simulate login delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    if (
-      credentials.username === testCredentials.username &&
-      credentials.password === testCredentials.password
-    ) {
-      localStorage.setItem('kalakriti-admin-token', 'admin-authenticated');
-      toast.success('Login successful!');
+    try {
+      const response = await api.post('/signin', {
+        email: credentials.email,
+        password: credentials.password
+      });
+      
+      const result = response.data;
+      
+      if (result.access_token) {
+        localStorage.setItem('kalakriti-admin-token', result.access_token);
+      }
+      
+      if (result.user) {
+        localStorage.setItem('kalakriti-admin-user', JSON.stringify(result.user));
+      }
+      
+      toast.success('Admin login successful!');
       navigate('/admin/dashboard');
-    } else {
+    } catch (error) {
+      console.error('Admin login error:', error);
       toast.error('Invalid credentials. Please try again.');
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   return (
@@ -74,17 +86,17 @@ const AdminLogin = () => {
           <CardContent>
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
-                <Label htmlFor="username" className="flex items-center gap-2">
-                  <User className="h-4 w-4" />
-                  Username
+                <Label htmlFor="email" className="flex items-center gap-2">
+                  <Mail className="h-4 w-4" />
+                  Email
                 </Label>
                 <Input
-                  id="username"
-                  name="username"
-                  type="text"
-                  value={credentials.username}
+                  id="email"
+                  name="email"
+                  type="email"
+                  value={credentials.email}
                   onChange={handleInputChange}
-                  placeholder="Enter admin username"
+                  placeholder="admin@admin.com"
                   required
                 />
               </div>
@@ -115,10 +127,9 @@ const AdminLogin = () => {
             </form>
             
             <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-              <h4 className="font-medium text-blue-900 mb-2">Test Credentials:</h4>
+              <h4 className="font-medium text-blue-900 mb-2">Admin Access:</h4>
               <p className="text-sm text-blue-700">
-                <strong>Username:</strong> admin<br />
-                <strong>Password:</strong> kalakriti@admin2025
+                Only <strong>admin@admin.com</strong> can access the admin panel
               </p>
             </div>
           </CardContent>

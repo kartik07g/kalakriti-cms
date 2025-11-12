@@ -10,6 +10,7 @@ import { Award, Calendar, FileText, Download, Edit2, Save, X, CheckCircle2, Uplo
 import { toast } from 'sonner';
 import jsPDF from 'jspdf';
 import { useNavigate } from 'react-router-dom';
+import api from '@/lib/axios';
 
 const UserDashboard = () => {
   const navigate = useNavigate();
@@ -19,6 +20,25 @@ const UserDashboard = () => {
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [hasParticipated, setHasParticipated] = useState(false);
 
+  const fetchUserData = async (userId: string) => {
+    try {
+      const token = localStorage.getItem('kalakriti-token');
+      const response = await api.get(`/users?user_id=${userId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const users = response.data.users;
+      const user = Array.isArray(users) ? users[0] : users;
+      setUserData(user);
+      setOriginalUserData(user);
+      localStorage.setItem('kalakriti-user', JSON.stringify(user));
+      setHasParticipated(!!user.user_id || user.hasParticipated);
+    } catch (error) {
+      console.error('Failed to fetch user data:', error);
+    }
+  };
+
   useEffect(() => {
     // Load user data from localStorage
     const storedUser = localStorage.getItem('kalakriti-user');
@@ -27,6 +47,11 @@ const UserDashboard = () => {
       setUserData(user);
       setOriginalUserData(user);
       setHasParticipated(!!user.user_id || user.hasParticipated);
+      
+      // Fetch latest user data from API if user_id exists
+      if (user.user_id) {
+        fetchUserData(user.user_id);
+      }
     }
     
     // Load submissions from localStorage
@@ -49,9 +74,11 @@ const UserDashboard = () => {
     
     editableFields.forEach(field => {
       if (userData[field] !== originalUserData[field]) {
-        updatedFields[field] = userData[field];
+        updatedFields[field] = userData[field] || '';
       }
     });
+
+    console.log('Updated fields:', updatedFields);
 
     if (Object.keys(updatedFields).length === 0) {
       setIsEditing(false);
@@ -60,27 +87,23 @@ const UserDashboard = () => {
     }
 
     try {
+      console.log('Request payload:', JSON.stringify(updatedFields));
+      
       const token = localStorage.getItem('kalakriti-token');
-      const response = await fetch('/v1/backend/users', {
-        method: 'PATCH',
+      await api.patch(`/user/${userData.user_id}`, updatedFields, {
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(updatedFields)
+          'Authorization': `Bearer ${token}`
+        }
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to update profile');
-      }
-
-      localStorage.setItem('kalakriti-user', JSON.stringify(userData));
-      setOriginalUserData(userData);
+      // Fetch updated user data
+      await fetchUserData(userData.user_id);
+      
       setIsEditing(false);
       toast.success('Profile updated successfully!');
     } catch (error) {
-      toast.error('Failed to update profile. Please try again.');
       console.error('Profile update error:', error);
+      toast.error('Failed to update profile. Please try again.');
     }
   };
 

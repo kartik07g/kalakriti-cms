@@ -56,6 +56,8 @@ class UserService:
         query = db.query(User).filter(User.status == True)
         
         # Apply filters
+        if filters.get('user_id'):
+            query = query.filter(User.user_id == filters['user_id'])
         if filters.get('email'):
             query = query.filter(User.email.ilike(f"%{filters['email']}%"))
         if filters.get('city'):
