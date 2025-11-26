@@ -1,2 +1,7 @@
 docker-compose exec -it backend alembic revision --autogenerate -m "initial migration"
 docker-compose exec -it backend alembic upgrade head
+
+
+
+*********************************
+new Events tab in admin panel with season, start and end date control

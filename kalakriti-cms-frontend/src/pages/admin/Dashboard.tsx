@@ -24,8 +24,9 @@ import {
 import { toast } from 'sonner';
 import ResultUpload from '@/components/admin/ResultUpload';
 import QueriesManagement from '@/components/admin/QueriesManagement';
-import ReviewsManagement from '@/components/admin/ReviewsManagement';
+
 import * as XLSX from 'xlsx';
+import api from '@/lib/axios';
 
 interface Participant {
   participantId: string;
@@ -55,6 +56,8 @@ interface Result {
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const [participants, setParticipants] = useState<Participant[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
+  const [eventRegistrations, setEventRegistrations] = useState<any[]>([]);
   const [results, setResults] = useState<Result[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedEvent, setSelectedEvent] = useState('all');
@@ -77,6 +80,36 @@ const AdminDashboard = () => {
     singing: 'Singing Competition'
   };
 
+  const fetchUsers = async () => {
+    try {
+      const token = localStorage.getItem('kalakriti-admin-token');
+      const response = await api.get('/users', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      setUsers(response.data.users || []);
+    } catch (error) {
+      console.error('Failed to fetch users:', error);
+      toast.error('Failed to load users');
+    }
+  };
+
+  const fetchEventRegistrations = async () => {
+    try {
+      const token = localStorage.getItem('kalakriti-admin-token');
+      const response = await api.get('/event-registrations', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      setEventRegistrations(response.data.event_registrations || []);
+    } catch (error) {
+      console.error('Failed to fetch event registrations:', error);
+      toast.error('Failed to load event registrations');
+    }
+  };
+
   useEffect(() => {
     // Check admin authentication
     const adminToken = localStorage.getItem('kalakriti-admin-token');
@@ -91,6 +124,10 @@ const AdminDashboard = () => {
     
     setParticipants(storedParticipants);
     setResults(storedResults);
+    
+    // Fetch users from API
+    fetchUsers();
+    fetchEventRegistrations();
   }, [navigate]);
 
   const handleLogout = () => {
@@ -103,6 +140,13 @@ const AdminDashboard = () => {
     const seasons = ['all', '2024', '2025'];
     return seasons;
   };
+
+  const filteredUsers = users.filter(user => {
+    const matchesSearch = user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         user.user_id?.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesSearch;
+  });
 
   const filteredParticipants = participants.filter(participant => {
     const matchesSearch = participant.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -227,7 +271,7 @@ const AdminDashboard = () => {
             <TabsTrigger value="participants">Participants</TabsTrigger>
             <TabsTrigger value="results">Results</TabsTrigger>
             <TabsTrigger value="queries">Queries</TabsTrigger>
-            <TabsTrigger value="reviews">Reviews</TabsTrigger>
+            <TabsTrigger value="registrations">Event Registrations</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
@@ -237,8 +281,8 @@ const AdminDashboard = () => {
                   <div className="flex items-center">
                     <Users className="h-8 w-8 text-kalakriti-primary" />
                     <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-600">Total Participants</p>
-                      <p className="text-2xl font-bold text-kalakriti-primary">{participants.length}</p>
+                      <p className="text-sm font-medium text-gray-600">Total Users</p>
+                      <p className="text-2xl font-bold text-kalakriti-primary">{users.length}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -362,7 +406,7 @@ const AdminDashboard = () => {
                     </Button>
                   </div>
                   <div className="text-sm text-gray-600">
-                    Showing {filteredParticipants.length} of {participants.length} participants
+                    Showing {filteredUsers.length} of {users.length} users
                   </div>
                 </div>
               </CardHeader>
@@ -383,64 +427,32 @@ const AdminDashboard = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredParticipants.map((participant, index) => (
-                        <tr key={participant.participantId} className="border-b hover:bg-gray-50">
-                          <td className="p-3 font-mono text-sm">{participant.participantId}</td>
-                          <td className="p-3 font-medium">{participant.fullName}</td>
+                      {filteredUsers.map((user, index) => (
+                        <tr key={user.user_id} className="border-b hover:bg-gray-50">
+                          <td className="p-3 font-mono text-sm">{user.user_id}</td>
+                          <td className="p-3 font-medium">{user.full_name}</td>
                           <td className="p-3">
                             <Badge variant="outline">
-                              {eventNames[participant.eventType as keyof typeof eventNames]}
+                              User
                             </Badge>
                           </td>
-                          <td className="p-3 text-sm text-gray-600">{participant.email}</td>
-                          <td className="p-3 text-sm text-gray-600">{participant.phone}</td>
-                          <td className="p-3 text-sm text-gray-600">{participant.city}</td>
+                          <td className="p-3 text-sm text-gray-600">{user.email}</td>
+                          <td className="p-3 text-sm text-gray-600">{user.phone_number}</td>
+                          <td className="p-3 text-sm text-gray-600">{user.city}</td>
                            <td className="p-3">
-                             <Badge variant={participant.status === 'registered' ? 'default' : 'secondary'}>
-                               {participant.status}
+                             <Badge variant="default">
+                               Active
                              </Badge>
                            </td>
                            <td className="p-3">
-                             {participant.submissionFileName ? (
-                               <div className="flex items-center gap-2">
-                                 {participant.submissionFileName.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
-                                   <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-purple-100 to-blue-100 flex items-center justify-center">
-                                     <Eye className="h-4 w-4 text-purple-600" />
-                                   </div>
-                                 ) : participant.submissionFileName.match(/\.(mp4|avi|mov|wmv|webm)$/i) ? (
-                                   <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-green-100 to-teal-100 flex items-center justify-center">
-                                     <FileText className="h-4 w-4 text-green-600" />
-                                   </div>
-                                 ) : (
-                                   <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-orange-100 to-red-100 flex items-center justify-center">
-                                     <FileText className="h-4 w-4 text-orange-600" />
-                                   </div>
-                                 )}
-                                 <div>
-                                   <p className="text-xs font-medium text-gray-700 truncate w-24" title={participant.submissionFileName}>
-                                     {participant.submissionFileName}
-                                   </p>
-                                   <p className="text-xs text-gray-500">
-                                     {participant.submissionFileName.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? 'Image' : 
-                                      participant.submissionFileName.match(/\.(mp4|avi|mov|wmv|webm)$/i) ? 'Video' : 'File'}
-                                   </p>
-                                 </div>
-                               </div>
-                             ) : (
-                               <span className="text-gray-400 text-sm">No submission</span>
-                             )}
+                             <span className="text-gray-400 text-sm">-</span>
                            </td>
                            <td className="p-3">
                              <Button 
                                size="sm" 
                                variant="outline"
                                onClick={() => {
-                                 if (participant.submissionFileName) {
-                                   // Here you would implement viewing the actual file
-                                   toast.info(`Viewing: ${participant.submissionFileName}`);
-                                 } else {
-                                   toast.error('No artwork submitted');
-                                 }
+                                 toast.info(`User: ${user.full_name}`);
                                }}
                              >
                                <Eye className="h-4 w-4" />
@@ -467,8 +479,51 @@ const AdminDashboard = () => {
             <QueriesManagement />
           </TabsContent>
 
-          <TabsContent value="reviews" className="space-y-6">
-            <ReviewsManagement />
+          <TabsContent value="registrations" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Event Registrations</CardTitle>
+                <div className="text-sm text-gray-600">
+                  Total registrations: {eventRegistrations.length}
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left p-3">Registration ID</th>
+                        <th className="text-left p-3">User ID</th>
+                        <th className="text-left p-3">Event Name</th>
+                        <th className="text-left p-3">Season</th>
+                        <th className="text-left p-3">Artwork Count</th>
+                        <th className="text-left p-3">Status</th>
+                        <th className="text-left p-3">Created Date</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {eventRegistrations.map((registration) => (
+                        <tr key={registration.event_registration_id} className="border-b hover:bg-gray-50">
+                          <td className="p-3 font-mono text-sm">{registration.event_registration_id}</td>
+                          <td className="p-3 font-mono text-sm">{registration.user_id}</td>
+                          <td className="p-3">{registration.event_name}</td>
+                          <td className="p-3">{registration.season}</td>
+                          <td className="p-3">{registration.artwork_count}</td>
+                          <td className="p-3">
+                            <Badge variant={registration.registration_status === 'pending' ? 'secondary' : 'default'}>
+                              {registration.registration_status}
+                            </Badge>
+                          </td>
+                          <td className="p-3 text-sm text-gray-600">
+                            {new Date(registration.created_dt).toLocaleDateString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>
