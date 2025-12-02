@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { getEvents } from '@/lib/api/events';
 import { motion } from 'framer-motion';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
@@ -122,15 +123,64 @@ const EventDetails = () => {
   const [showRegistration, setShowRegistration] = useState(false);
   const navigate = useNavigate();
   const [selectedArtworks, setSelectedArtworks] = useState(1);
+  const [apiEvent, setApiEvent] = useState(null);
+  const [loading, setLoading] = useState(true);
   
-  const event = eventDetails[eventType as keyof typeof eventDetails];
+  const staticEvent = eventDetails[eventType as keyof typeof eventDetails];
   
-  if (!event) {
+  useEffect(() => {
+    fetchEventData();
+  }, [eventType]);
+
+  const fetchEventData = async () => {
+    try {
+      setLoading(true);
+      const response = await getEvents();
+      const events = response.events || [];
+      
+      // Find matching event by name
+      const matchingEvent = events.find((e: any) => {
+        const eventName = staticEvent?.title;
+        return e.event_name === eventName;
+      });
+      
+      setApiEvent(matchingEvent);
+    } catch (error) {
+      console.error('Failed to fetch event data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  };
+  
+  if (!staticEvent) {
     return <div>Event not found</div>;
   }
 
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Navbar />
+        <div className="flex-grow flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-kalakriti-primary mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading event details...</p>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
   const handleParticipateNow = () => {
-    const totalAmount = event.entryFee * selectedArtworks;
+    const totalAmount = staticEvent.entryFee * selectedArtworks;
     // Redirect to payment page with selected artworks
     navigate(`/payment/${eventType}?artworks=${selectedArtworks}&amount=${totalAmount}`);
   };
@@ -150,34 +200,34 @@ const EventDetails = () => {
               transition={{ duration: 0.6 }}
             >
               <Badge className="mb-4 bg-white/20 text-white border-white/30">
-                Season 1 • 2025
+                Season {apiEvent?.season || '1'} • {apiEvent ? new Date(apiEvent.start_date).getFullYear() : '2025'}
               </Badge>
               <h1 className="text-3xl md:text-4xl lg:text-6xl font-bold font-heading mb-4">
-                {event.title}
+                {apiEvent?.event_name || staticEvent.title}
               </h1>
               <p className="text-lg md:text-xl lg:text-2xl mb-6 text-white/90">
-                {event.subtitle}
+                {staticEvent.subtitle}
               </p>
               <p className="text-base md:text-lg mb-8 text-white/80">
-                {event.description}
+                {staticEvent.description}
               </p>
               
               <div className="flex flex-wrap gap-3 md:gap-4 mb-8 text-sm md:text-base">
                 <div className="flex items-center gap-2">
                   <Calendar className="h-4 w-4 md:h-5 md:w-5" />
-                  <span>Start: {event.startDate}</span>
+                  <span>Start: {apiEvent ? formatDate(apiEvent.start_date) : staticEvent.startDate}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Calendar className="h-4 w-4 md:h-5 md:w-5" />
-                  <span>Deadline: {event.deadline}</span>
+                  <span>End: {apiEvent ? formatDate(apiEvent.end_date) : staticEvent.deadline}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Users className="h-4 w-4 md:h-5 md:w-5" />
-                  <span>{event.participants} Participants</span>
+                  <span>{staticEvent.participants} Participants</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Trophy className="h-4 w-4 md:h-5 md:w-5" />
-                  <span>₹{event.entryFee} Entry Fee</span>
+                  <span>₹{staticEvent.entryFee} Entry Fee</span>
                 </div>
               </div>
               
@@ -207,8 +257,8 @@ const EventDetails = () => {
             >
               <div className="rounded-2xl overflow-hidden shadow-2xl">
                 <img 
-                  src={event.image} 
-                  alt={event.title}
+                  src={staticEvent.image} 
+                  alt={apiEvent?.event_name || staticEvent.title}
                   className="w-full h-64 md:h-96 object-cover"
                 />
                 <div className="absolute top-4 right-4">
@@ -236,14 +286,14 @@ const EventDetails = () => {
               >
                 <h2 className="text-2xl md:text-3xl font-bold mb-6">About The Competition</h2>
                 <p className="text-gray-600 text-base md:text-lg mb-6 leading-relaxed">
-                  {event.longDescription}
+                  {staticEvent.longDescription}
                 </p>
                 
                 <h3 className="text-xl md:text-2xl font-semibold mb-4">Competition Categories</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-                  {event.categories.map((category, index) => (
+                  {staticEvent.categories.map((category, index) => (
                     <div key={index} className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg">
-                      <Star className={`h-4 w-4 md:h-5 md:w-5 ${event.accentColor}`} />
+                      <Star className={`h-4 w-4 md:h-5 md:w-5 ${staticEvent.accentColor}`} />
                       <span className="font-medium text-sm md:text-base">{category}</span>
                     </div>
                   ))}
@@ -251,7 +301,7 @@ const EventDetails = () => {
                 
                 <h3 className="text-xl md:text-2xl font-semibold mb-4">Prizes & Recognition</h3>
                 <div className="space-y-3">
-                  {event.prizes.map((prize, index) => (
+                  {staticEvent.prizes.map((prize, index) => (
                     <div key={index} className="flex items-center gap-3 p-4 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg border border-yellow-200">
                       <div className="flex items-center justify-center w-6 h-6 md:w-8 md:h-8 bg-yellow-500 text-white rounded-full font-bold text-sm md:text-base">
                         {index + 1}
@@ -276,7 +326,7 @@ const EventDetails = () => {
                 <div className="space-y-4 mb-6">
                   <div className="flex justify-between text-sm md:text-base">
                     <span>Entry Fee per Artwork:</span>
-                    <span className="font-bold">₹{event.entryFee}</span>
+                    <span className="font-bold">₹{staticEvent.entryFee}</span>
                   </div>
                   
                   <div>
@@ -294,12 +344,12 @@ const EventDetails = () => {
                   
                   <div className="flex justify-between text-base md:text-lg font-bold border-t pt-4">
                     <span>Total Amount:</span>
-                    <span>₹{event.entryFee * selectedArtworks}</span>
+                    <span>₹{staticEvent.entryFee * selectedArtworks}</span>
                   </div>
                 </div>
                 
                 <Button 
-                  className={`w-full bg-gradient-to-r ${event.theme} hover:opacity-90 text-white`}
+                  className={`w-full bg-gradient-to-r ${staticEvent.theme} hover:opacity-90 text-white`}
                   size="lg"
                   onClick={() => setShowRegistration(true)}
                 >
@@ -321,8 +371,8 @@ const EventDetails = () => {
       {showRegistration && (
         <ParticipantRegistration
           eventType={eventType!}
-          eventName={event.title}
-          eventColor={event.theme}
+          eventName={apiEvent?.event_name || staticEvent.title}
+          eventColor={staticEvent.theme}
           onClose={() => setShowRegistration(false)}
         />
       )}

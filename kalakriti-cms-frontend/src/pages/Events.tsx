@@ -1,82 +1,129 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import EventCard from '@/components/home/EventCard';
+import { getEvents } from '@/lib/api/events';
 
-// Sample event data
-const events = [
-  {
-    id: 1,
-    title: 'Kalakriti Art Competition',
+// Event type mapping for images and descriptions
+const eventTypeMap = {
+  'Kalakriti Art Competition': {
     description: 'Showcase your painting, sketching or digital art skills in India\'s premier art competition.',
     imageSrc: '/images/art-event.jpg',
-    imageAlt: 'Art Competition',
     eventType: 'art',
-    date: 'August 15 - September 30, 2023',
     entryFee: '₹500 per entry',
     categories: ['Painting', 'Sketching', 'Digital Art']
   },
-  {
-    id: 2,
-    title: 'Kalakriti Photography Contest',
+  'Kalakriti Photography Contest': {
     description: 'Capture moments that tell stories through your lens in this national photography competition.',
     imageSrc: '/images/photography-event.jpg',
-    imageAlt: 'Photography Contest',
     eventType: 'photography',
-    date: 'September 1 - October 15, 2023',
     entryFee: '₹600 per entry',
     categories: ['Portrait', 'Landscape', 'Street Photography']
   },
-  {
-    id: 3,
-    title: 'Kalakriti Mehndi Championship',
+  'Kalakriti Mehndi Championship': {
     description: 'Express your creativity through the traditional art of mehndi design.',
     imageSrc: '/images/mehndi-event.jpg',
-    imageAlt: 'Mehndi Championship',
     eventType: 'mehndi',
-    date: 'July 20 - August 25, 2023',
     entryFee: '₹450 per entry',
     categories: ['Traditional', 'Indo-Arabic', 'Modern Fusion']
   },
-  {
-    id: 4,
-    title: 'Kalakriti Rangoli Festival',
+  'Kalakriti Rangoli Festival': {
     description: 'Celebrate the vibrant art form of rangoli with your unique patterns and designs.',
     imageSrc: '/images/rangoli-event.jpg',
-    imageAlt: 'Rangoli Festival',
     eventType: 'rangoli',
-    date: 'October 15 - November 20, 2023',
     entryFee: '₹400 per entry',
     categories: ['Traditional', 'Contemporary', 'Eco-friendly']
   },
-  {
-    id: 5,
-    title: 'Kalakriti Dance Competition',
+  'Kalakriti Dance Competition': {
     description: 'Showcase your dancing talent across various Indian classical and contemporary styles.',
     imageSrc: '/images/dance-event.jpg',
-    imageAlt: 'Dance Competition',
     eventType: 'dance',
-    date: 'August 10 - September 25, 2023',
     entryFee: '₹700 per entry',
     categories: ['Classical', 'Folk', 'Contemporary']
   },
-  {
-    id: 6,
-    title: 'Kalakriti Singing Contest',
+  'Kalakriti Singing Contest': {
     description: 'Let your voice shine in India\'s biggest vocal talent hunt across multiple genres.',
     imageSrc: '/images/singing-event.jpg',
-    imageAlt: 'Singing Contest',
     eventType: 'singing',
-    date: 'September 5 - October 20, 2023',
     entryFee: '₹650 per entry',
     categories: ['Classical', 'Bollywood', 'Folk Songs']
   }
-];
+};
 
 const Events = () => {
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    fetchEvents();
+  }, []);
+
+  const fetchEvents = async () => {
+    try {
+      setLoading(true);
+      const response = await getEvents();
+      setEvents(response.events || []);
+    } catch (err) {
+      setError('Failed to fetch events');
+      console.error('Error fetching events:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatDate = (startDate, endDate) => {
+    const start = new Date(startDate).toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric'
+    });
+    const end = new Date(endDate).toLocaleDateString('en-US', {
+      month: 'long', 
+      day: 'numeric',
+      year: 'numeric'
+    });
+    return `${start} - ${end}`;
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Navbar />
+        <div className="flex-grow pt-20 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-kalakriti-primary mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading events...</p>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Navbar />
+        <div className="flex-grow pt-20 flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-red-600 mb-4">{error}</p>
+            <button 
+              onClick={fetchEvents}
+              className="px-4 py-2 bg-kalakriti-primary text-white rounded hover:bg-opacity-90"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
@@ -99,38 +146,54 @@ const Events = () => {
           </motion.div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-            {events.map((event, index) => (
-              <motion.div
-                key={event.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.1 * event.id }}
-              >
-                <EventCard
-                  title={event.title}
-                  description={event.description}
-                  imageSrc={event.imageSrc}
-                  eventType={event.eventType}
-                  index={index}
-                />
-                
-                <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-                  <div className="mb-2">
-                    <span className="font-medium text-gray-700">Event Date: </span>
-                    <span>{event.date}</span>
+            {events.map((event, index) => {
+              const eventInfo = eventTypeMap[event.event_name] || {};
+              return (
+                <motion.div
+                  key={event.event_id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.1 * (index + 1) }}
+                >
+                  <EventCard
+                    title={event.event_name}
+                    description={eventInfo.description || 'Join this exciting competition!'}
+                    imageSrc={eventInfo.imageSrc || '/images/default-event.jpg'}
+                    eventType={eventInfo.eventType || 'general'}
+                    index={index}
+                  />
+                  
+                  <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+                    <div className="mb-2">
+                      <span className="font-medium text-gray-700">Season: </span>
+                      <span>{event.season}</span>
+                    </div>
+                    <div className="mb-2">
+                      <span className="font-medium text-gray-700">Event Date: </span>
+                      <span>{formatDate(event.start_date, event.end_date)}</span>
+                    </div>
+                    <div className="mb-2">
+                      <span className="font-medium text-gray-700">Entry Fee: </span>
+                      <span>{eventInfo.entryFee || 'TBD'}</span>
+                    </div>
+                    {eventInfo.categories && (
+                      <div>
+                        <span className="font-medium text-gray-700">Categories: </span>
+                        <span>{eventInfo.categories.join(', ')}</span>
+                      </div>
+                    )}
                   </div>
-                  <div className="mb-2">
-                    <span className="font-medium text-gray-700">Entry Fee: </span>
-                    <span>{event.entryFee}</span>
-                  </div>
-                  <div>
-                    <span className="font-medium text-gray-700">Categories: </span>
-                    <span>{event.categories.join(', ')}</span>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
+                </motion.div>
+              );
+            })}
           </div>
+          
+          {events.length === 0 && (
+            <div className="text-center py-12">
+              <p className="text-gray-600 text-lg">No events available at the moment.</p>
+              <p className="text-gray-500 mt-2">Please check back later for upcoming events!</p>
+            </div>
+          )}
           
           <div className="text-center">
             <Link

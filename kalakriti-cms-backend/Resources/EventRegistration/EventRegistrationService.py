@@ -1,8 +1,12 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 from models.event_registration import EventRegistration
+from models.user import User
 from schemas.event_registration import EventRegistrationCreate, EventRegistrationUpdate, EventRegistrationResponse
+from Bizlayer.EmailStrategy.EmailStrategy import SMTPEmailStrategy
+from utils.email_template_renderer import render_template
 from typing import List, Optional
+from datetime import datetime
 
 class EventRegistrationService:
     
@@ -19,10 +23,48 @@ class EventRegistrationService:
         db.commit()
         db.refresh(new_registration)
         
+        # Send registration success email
+        self._send_registration_email(db, new_registration)
+        
         return {
             "message": "Event registration created successfully",
             "registration": EventRegistrationResponse.model_validate(new_registration)
         }
+    
+    def _send_registration_email(self, db: Session, registration: EventRegistration):
+        """Send registration success email to user"""
+        try:
+            # Get user details
+            user = db.query(User).filter(User.user_id == registration.user_id).first()
+            if not user:
+                return
+            
+            # Prepare email data
+            email_data = {
+                "user_name": user.full_name if user.full_name else user.email,
+                "registration_id": registration.event_registration_id,
+                "event_name": registration.event_name,
+                "season": registration.season,
+                "artwork_count": registration.artwork_count,
+                "registration_date": registration.created_dt.strftime("%B %d, %Y") if registration.created_dt else datetime.now().strftime("%B %d, %Y"),
+                "registration_status": registration.registration_status.title()
+            }
+            
+            # Render email template
+            email_body = render_template("successful_registration.html", email_data)
+            
+            # Send email using SMTPEmailStrategy
+            email_strategy = SMTPEmailStrategy()
+            email_strategy.send_email(
+                to_email=user.email,
+                subject=f"Registration Successful - {registration.event_name}",
+                body=email_body,
+                html=True
+            )
+            
+        except Exception as e:
+            # Log error but don't fail the registration
+            print(f"Failed to send registration email: {str(e)}")
     
     def get_registrations(self, db: Session, **filters) -> List[EventRegistrationResponse]:
         """Get event registrations with optional filtering"""

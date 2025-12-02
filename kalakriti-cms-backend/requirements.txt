@@ -10,3 +10,5 @@ pydantic
 email-validator
 python-multipart
 boto3
+python-dotenv
+jinja2

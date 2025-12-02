@@ -1,18 +1,28 @@
 
-import { fetchWithErrorHandling, API_BASE_URL } from '../apiUtils';
+import api from '@/lib/axios';
+
+export const getEvents = async () => {
+  try {
+    const response = await api.get('/events');
+    return response.data;
+  } catch (error) {
+    console.error('Failed to fetch events:', error);
+    throw error;
+  }
+};
 
 export const eventsApi = {
   getAll: async () => {
-    // In a real implementation, you would:
-    // 1. Call your backend API to get events from MongoDB
-    
-    return fetchWithErrorHandling(`${API_BASE_URL}/events`);
+    return getEvents();
   },
   
   getByType: async (eventType: string) => {
-    // In a real implementation, you would:
-    // 1. Call your backend API to get a specific event from MongoDB
-    
-    return fetchWithErrorHandling(`${API_BASE_URL}/events/${eventType}`);
+    try {
+      const response = await api.get(`/events/${eventType}`);
+      return response.data;
+    } catch (error) {
+      console.error('Failed to fetch event:', error);
+      throw error;
+    }
   },
 };

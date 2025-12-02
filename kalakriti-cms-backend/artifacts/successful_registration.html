@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registration Successful - Kalakriti</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background: #ffffff;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        .content {
+            padding: 40px 30px;
+        }
+        .welcome-text {
+            font-size: 18px;
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+        .registration-details {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .detail-row:last-child {
+            border-bottom: none;
+        }
+        .detail-label {
+            font-weight: bold;
+            color: #495057;
+        }
+        .detail-value {
+            color: #6c757d;
+        }
+        .success-badge {
+            background: #28a745;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+            display: inline-block;
+            margin: 10px 0;
+        }
+        .footer {
+            background: #2c3e50;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            font-size: 14px;
+        }
+        .footer a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        .btn {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 20px 0;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎨 Kalakriti</h1>
+            <p>Registration Successful!</p>
+        </div>
+        
+        <div class="content">
+            <div class="welcome-text">
+                Dear <strong>{{user_name}}</strong>,
+            </div>
+            
+            <p>Congratulations! Your registration for <strong>{{event_name}}</strong> has been successfully completed.</p>
+            
+            <div class="success-badge">✓ Registration Confirmed</div>
+            
+            <div class="registration-details">
+                <h3 style="margin-top: 0; color: #2c3e50;">Registration Details</h3>
+                
+                <div class="detail-row">
+                    <span class="detail-label">Registration ID:</span>
+                    <span class="detail-value">{{registration_id}}</span>
+                </div>
+                
+                <div class="detail-row">
+                    <span class="detail-label">Event Name:</span>
+                    <span class="detail-value">{{event_name}}</span>
+                </div>
+                
+                <div class="detail-row">
+                    <span class="detail-label">Season:</span>
+                    <span class="detail-value">{{season}}</span>
+                </div>
+                
+                <div class="detail-row">
+                    <span class="detail-label">Artwork Count:</span>
+                    <span class="detail-value">{{artwork_count}}</span>
+                </div>
+                
+                <div class="detail-row">
+                    <span class="detail-label">Registration Date:</span>
+                    <span class="detail-value">{{registration_date}}</span>
+                </div>
+                
+                <div class="detail-row">
+                    <span class="detail-label">Status:</span>
+                    <span class="detail-value" style="color: #28a745; font-weight: bold;">{{registration_status}}</span>
+                </div>
+            </div>
+            
+            <p>We're excited to have you participate in this event. Please keep this email for your records.</p>
+            
+            <p>If you have any questions or need assistance, please don't hesitate to contact our support team.</p>
+            
+        </div>
+        
+        <div class="footer">
+            <p>&copy; 2024 Kalakriti. All rights reserved.</p>
+            <p>
+                <a href="#">Contact Support</a> | 
+                <a href="#">Event Guidelines</a> | 
+                <a href="#">Terms & Conditions</a>
+            </p>
+        </div>
+    </div>
+</body>
+</html>
