@@ -58,6 +58,8 @@ const AdminDashboard = () => {
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [eventRegistrations, setEventRegistrations] = useState<any[]>([]);
+  const [events, setEvents] = useState<any[]>([]);
+  const [editingEvent, setEditingEvent] = useState<any>(null);
   const [results, setResults] = useState<Result[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedEvent, setSelectedEvent] = useState('all');
@@ -78,6 +80,19 @@ const AdminDashboard = () => {
     rangoli: 'Rangoli Competition',
     dance: 'Dance Competition',
     singing: 'Singing Competition'
+  };
+
+  // Format date to match API response format (YYYY-MM-DD)
+  const formatDate = (dateString: string) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toISOString().split('T')[0];
+  };
+
+  // Format datetime to match API response format (ISO string)
+  const formatDateTime = (dateString: string) => {
+    if (!dateString) return '';
+    return new Date(dateString).toISOString();
   };
 
   const fetchUsers = async () => {
@@ -110,6 +125,38 @@ const AdminDashboard = () => {
     }
   };
 
+  const fetchEvents = async () => {
+    try {
+      const token = localStorage.getItem('kalakriti-admin-token');
+      const response = await api.get('/events', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      setEvents(response.data.events || []);
+    } catch (error) {
+      console.error('Failed to fetch events:', error);
+      toast.error('Failed to load events');
+    }
+  };
+
+  const updateEvent = async (eventId: string, updatedData: any) => {
+    try {
+      const token = localStorage.getItem('kalakriti-admin-token');
+      await api.patch(`/events/${eventId}`, updatedData, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      toast.success('Event updated successfully');
+      fetchEvents();
+      setEditingEvent(null);
+    } catch (error) {
+      console.error('Failed to update event:', error);
+      toast.error('Failed to update event');
+    }
+  };
+
   useEffect(() => {
     // Check admin authentication
     const adminToken = localStorage.getItem('kalakriti-admin-token');
@@ -128,6 +175,7 @@ const AdminDashboard = () => {
     // Fetch users from API
     fetchUsers();
     fetchEventRegistrations();
+    fetchEvents();
   }, [navigate]);
 
   const handleLogout = () => {
@@ -266,9 +314,10 @@ const AdminDashboard = () => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="participants">Participants</TabsTrigger>
+            <TabsTrigger value="events">Events</TabsTrigger>
             <TabsTrigger value="results">Results</TabsTrigger>
             <TabsTrigger value="queries">Queries</TabsTrigger>
             <TabsTrigger value="registrations">Event Registrations</TabsTrigger>
@@ -467,6 +516,118 @@ const AdminDashboard = () => {
             </Card>
           </TabsContent>
 
+          <TabsContent value="events" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Events Management</CardTitle>
+                <div className="text-sm text-gray-600">
+                  Total events: {events.length}
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left p-3">Event ID</th>
+                        <th className="text-left p-3">Event Name</th>
+                        <th className="text-left p-3">Season</th>
+                        <th className="text-left p-3">Start Date</th>
+                        <th className="text-left p-3">End Date</th>
+                        <th className="text-left p-3">Created</th>
+                        <th className="text-left p-3">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {events.map((event) => (
+                        <tr key={event.event_id} className="border-b hover:bg-gray-50">
+                          <td className="p-3 font-mono text-sm">{event.event_id}</td>
+                          <td className="p-3 font-medium">{event.event_name}</td>
+                          <td className="p-3">
+                            {editingEvent?.event_id === event.event_id ? (
+                              <Input
+                                value={editingEvent.season}
+                                onChange={(e) => setEditingEvent({...editingEvent, season: e.target.value})}
+                                className="w-24"
+                              />
+                            ) : (
+                              event.season
+                            )}
+                          </td>
+                          <td className="p-3">
+                            {editingEvent?.event_id === event.event_id ? (
+                              <Input
+                                type="date"
+                                value={editingEvent.start_date}
+                                onChange={(e) => setEditingEvent({...editingEvent, start_date: e.target.value})}
+                                className="w-32"
+                              />
+                            ) : (
+                              event.start_date
+                            )}
+                          </td>
+                          <td className="p-3">
+                            {editingEvent?.event_id === event.event_id ? (
+                              <Input
+                                type="date"
+                                value={editingEvent.end_date}
+                                onChange={(e) => setEditingEvent({...editingEvent, end_date: e.target.value})}
+                                className="w-32"
+                              />
+                            ) : (
+                              event.end_date
+                            )}
+                          </td>
+                          <td className="p-3 text-sm text-gray-600">
+                            {event.created_at.split('T')[0]}
+                          </td>
+                          <td className="p-3">
+                            {editingEvent?.event_id === event.event_id ? (
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  onClick={() => {
+                                    const updatedFields: any = {};
+                                    if (editingEvent.season !== event.season) updatedFields.season = editingEvent.season;
+                                    if (editingEvent.start_date !== event.start_date) updatedFields.start_date = editingEvent.start_date;
+                                    if (editingEvent.end_date !== event.end_date) updatedFields.end_date = editingEvent.end_date;
+                                    
+                                    if (Object.keys(updatedFields).length > 0) {
+                                      updateEvent(event.event_id, updatedFields);
+                                    } else {
+                                      setEditingEvent(null);
+                                    }
+                                  }}
+                                >
+                                  <CheckCircle className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => setEditingEvent(null)}
+                                >
+                                  <XCircle className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setEditingEvent(event)}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
           <TabsContent value="results" className="space-y-6">
             <ResultUpload 
               eventTypes={eventTypes}
@@ -515,7 +676,7 @@ const AdminDashboard = () => {
                             </Badge>
                           </td>
                           <td className="p-3 text-sm text-gray-600">
-                            {new Date(registration.created_dt).toLocaleDateString()}
+                            {registration.created_dt.split('T')[0]}
                           </td>
                         </tr>
                       ))}
