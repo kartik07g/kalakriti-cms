@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -49,14 +49,35 @@ const ParticipantRegistration: React.FC<ParticipantRegistrationProps> = ({
     confirmPassword: '',
     previous_experience: userData?.previous_experience || '',
     submission: null as File | null,
-    season: 'Season 1',
+    season: '',
     artwork_count: 1
   });
+  const [currentSeason, setCurrentSeason] = useState('');
   const [paymentProcessing, setPaymentProcessing] = useState(false);
   const [registrationComplete, setRegistrationComplete] = useState(false);
   const [participantId, setParticipantId] = useState('');
 
   const event = eventDetails[eventType as keyof typeof eventDetails];
+
+  useEffect(() => {
+    const fetchCurrentSeason = async () => {
+      try {
+        const response = await api.get('/events');
+        const events = response.data.events || [];
+        const activeEvent = events.find((e: any) => e.event_name === eventName);
+        if (activeEvent?.season) {
+          setCurrentSeason(activeEvent.season);
+          setFormData(prev => ({ ...prev, season: activeEvent.season }));
+        }
+      } catch (error) {
+        console.error('Failed to fetch current season:', error);
+        setCurrentSeason('Season 1');
+        setFormData(prev => ({ ...prev, season: 'Season 1' }));
+      }
+    };
+    
+    fetchCurrentSeason();
+  }, [eventName]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setFormData(prev => ({
@@ -183,7 +204,7 @@ const ParticipantRegistration: React.FC<ParticipantRegistrationProps> = ({
       const eventRegistrationPayload = {
         user_id: userId,
         event_name: eventName,
-        season: 'Season 1', // You can make this dynamic
+        season: formData.season,
         artwork_count: 1
       };
       

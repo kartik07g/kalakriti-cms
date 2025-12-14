@@ -19,7 +19,8 @@ import {
   Download,
   Eye,
   CheckCircle,
-  XCircle
+  XCircle,
+  ArrowUpDown
 } from 'lucide-react';
 import { toast } from 'sonner';
 import ResultUpload from '@/components/admin/ResultUpload';
@@ -64,6 +65,15 @@ const AdminDashboard = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedEvent, setSelectedEvent] = useState('all');
   const [selectedSeason, setSelectedSeason] = useState('all');
+  const [eventDateFilter, setEventDateFilter] = useState('');
+  const [eventSeasonFilter, setEventSeasonFilter] = useState('all');
+  const [eventSortBy, setEventSortBy] = useState('created_at');
+  const [eventSortOrder, setEventSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [regStartDate, setRegStartDate] = useState('');
+  const [regEndDate, setRegEndDate] = useState('');
+  const [regSeasonFilter, setRegSeasonFilter] = useState('all');
+  const [regSortBy, setRegSortBy] = useState('created_dt');
+  const [regSortOrder, setRegSortOrder] = useState<'asc' | 'desc'>('desc');
   const [newResult, setNewResult] = useState({
     participantId: '',
     eventType: '',
@@ -187,6 +197,82 @@ const AdminDashboard = () => {
   const getAvailableSeasons = () => {
     const seasons = ['all', '2024', '2025'];
     return seasons;
+  };
+
+  const getEventSeasons = () => {
+    const seasons = new Set(events.map(event => event.season).filter(Boolean));
+    return ['all', ...Array.from(seasons)];
+  };
+
+  const filteredAndSortedEvents = events
+    .filter(event => {
+      const matchesDate = !eventDateFilter || 
+        (event.start_date && event.start_date.includes(eventDateFilter)) ||
+        (event.end_date && event.end_date.includes(eventDateFilter));
+      const matchesSeason = eventSeasonFilter === 'all' || event.season === eventSeasonFilter;
+      return matchesDate && matchesSeason;
+    })
+    .sort((a, b) => {
+      let aValue = a[eventSortBy as keyof typeof a];
+      let bValue = b[eventSortBy as keyof typeof b];
+      
+      if (eventSortBy === 'created_at' || eventSortBy === 'start_date' || eventSortBy === 'end_date') {
+        aValue = new Date(aValue as string).getTime();
+        bValue = new Date(bValue as string).getTime();
+      }
+      
+      if (eventSortOrder === 'asc') {
+        return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+      } else {
+        return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
+      }
+    });
+
+  const handleEventSort = (column: string) => {
+    if (eventSortBy === column) {
+      setEventSortOrder(eventSortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setEventSortBy(column);
+      setEventSortOrder('asc');
+    }
+  };
+
+  const getRegistrationSeasons = () => {
+    const seasons = new Set(eventRegistrations.map(reg => reg.season).filter(Boolean));
+    return ['all', ...Array.from(seasons)];
+  };
+
+  const filteredAndSortedRegistrations = eventRegistrations
+    .filter(registration => {
+      const regDate = new Date(registration.created_dt.split('T')[0]);
+      const matchesStartDate = !regStartDate || regDate >= new Date(regStartDate);
+      const matchesEndDate = !regEndDate || regDate <= new Date(regEndDate);
+      const matchesSeason = regSeasonFilter === 'all' || registration.season === regSeasonFilter;
+      return matchesStartDate && matchesEndDate && matchesSeason;
+    })
+    .sort((a, b) => {
+      let aValue = a[regSortBy as keyof typeof a];
+      let bValue = b[regSortBy as keyof typeof b];
+      
+      if (regSortBy === 'created_dt') {
+        aValue = new Date(aValue as string).getTime();
+        bValue = new Date(bValue as string).getTime();
+      }
+      
+      if (regSortOrder === 'asc') {
+        return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+      } else {
+        return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
+      }
+    });
+
+  const handleRegistrationSort = (column: string) => {
+    if (regSortBy === column) {
+      setRegSortOrder(regSortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setRegSortBy(column);
+      setRegSortOrder('asc');
+    }
   };
 
   const filteredUsers = users.filter(user => {
@@ -520,8 +606,31 @@ const AdminDashboard = () => {
             <Card>
               <CardHeader>
                 <CardTitle>Events Management</CardTitle>
-                <div className="text-sm text-gray-600">
-                  Total events: {events.length}
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <Input
+                      type="date"
+                      placeholder="Filter by date"
+                      value={eventDateFilter}
+                      onChange={(e) => setEventDateFilter(e.target.value)}
+                      className="w-full sm:w-auto"
+                    />
+                    <select
+                      value={eventSeasonFilter}
+                      onChange={(e) => setEventSeasonFilter(e.target.value)}
+                      className="px-3 py-2 border border-gray-300 rounded-md bg-white"
+                    >
+                      <option value="all">All Seasons</option>
+                      {getEventSeasons().filter(s => s !== 'all').map(season => (
+                        <option key={season} value={season}>
+                          Season {season}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    Showing {filteredAndSortedEvents.length} of {events.length} events
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -530,16 +639,41 @@ const AdminDashboard = () => {
                     <thead>
                       <tr className="border-b">
                         <th className="text-left p-3">Event ID</th>
-                        <th className="text-left p-3">Event Name</th>
-                        <th className="text-left p-3">Season</th>
-                        <th className="text-left p-3">Start Date</th>
-                        <th className="text-left p-3">End Date</th>
-                        <th className="text-left p-3">Created</th>
+                        <th className="text-left p-3 cursor-pointer hover:bg-gray-50" onClick={() => handleEventSort('event_name')}>
+                          <div className="flex items-center gap-1">
+                            Event Name
+                            <ArrowUpDown className="h-4 w-4" />
+                          </div>
+                        </th>
+                        <th className="text-left p-3 cursor-pointer hover:bg-gray-50" onClick={() => handleEventSort('season')}>
+                          <div className="flex items-center gap-1">
+                            Season
+                            <ArrowUpDown className="h-4 w-4" />
+                          </div>
+                        </th>
+                        <th className="text-left p-3 cursor-pointer hover:bg-gray-50" onClick={() => handleEventSort('start_date')}>
+                          <div className="flex items-center gap-1">
+                            Start Date
+                            <ArrowUpDown className="h-4 w-4" />
+                          </div>
+                        </th>
+                        <th className="text-left p-3 cursor-pointer hover:bg-gray-50" onClick={() => handleEventSort('end_date')}>
+                          <div className="flex items-center gap-1">
+                            End Date
+                            <ArrowUpDown className="h-4 w-4" />
+                          </div>
+                        </th>
+                        <th className="text-left p-3 cursor-pointer hover:bg-gray-50" onClick={() => handleEventSort('created_at')}>
+                          <div className="flex items-center gap-1">
+                            Created
+                            <ArrowUpDown className="h-4 w-4" />
+                          </div>
+                        </th>
                         <th className="text-left p-3">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {events.map((event) => (
+                      {filteredAndSortedEvents.map((event) => (
                         <tr key={event.event_id} className="border-b hover:bg-gray-50">
                           <td className="p-3 font-mono text-sm">{event.event_id}</td>
                           <td className="p-3 font-medium">{event.event_name}</td>
@@ -644,8 +778,66 @@ const AdminDashboard = () => {
             <Card>
               <CardHeader>
                 <CardTitle>Event Registrations</CardTitle>
-                <div className="text-sm text-gray-600">
-                  Total registrations: {eventRegistrations.length}
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col sm:flex-row gap-4 items-end">
+                    <div className="flex flex-col gap-1">
+                      <Label className="text-sm font-medium">From Date</Label>
+                      <Input
+                        type="date"
+                        value={regStartDate}
+                        onChange={(e) => setRegStartDate(e.target.value)}
+                        className="w-full sm:w-auto"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <Label className="text-sm font-medium">To Date</Label>
+                      <Input
+                        type="date"
+                        value={regEndDate}
+                        onChange={(e) => setRegEndDate(e.target.value)}
+                        className="w-full sm:w-auto"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <Label className="text-sm font-medium">Season</Label>
+                      <select
+                        value={regSeasonFilter}
+                        onChange={(e) => setRegSeasonFilter(e.target.value)}
+                        className="px-3 py-2 border border-gray-300 rounded-md bg-white h-10"
+                      >
+                        <option value="all">All Seasons</option>
+                        {getRegistrationSeasons().filter(s => s !== 'all').map(season => (
+                          <option key={season} value={season}>
+                            Season {season}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setRegStartDate('');
+                        setRegEndDate('');
+                        setRegSeasonFilter('all');
+                      }}
+                      className="whitespace-nowrap"
+                    >
+                      Clear Filters
+                    </Button>
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    {(regStartDate || regEndDate || regSeasonFilter !== 'all') && (
+                      <span className="text-blue-600 font-medium">
+                        Filtered: {filteredAndSortedRegistrations.length} of {eventRegistrations.length} registrations
+                        {regStartDate && ` • From: ${regStartDate}`}
+                        {regEndDate && ` • To: ${regEndDate}`}
+                        {regSeasonFilter !== 'all' && ` • Season: ${regSeasonFilter}`}
+                      </span>
+                    )}
+                    {!regStartDate && !regEndDate && regSeasonFilter === 'all' && (
+                      <span>Showing all {eventRegistrations.length} registrations</span>
+                    )}
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -654,16 +846,46 @@ const AdminDashboard = () => {
                     <thead>
                       <tr className="border-b">
                         <th className="text-left p-3">Registration ID</th>
-                        <th className="text-left p-3">User ID</th>
-                        <th className="text-left p-3">Event Name</th>
-                        <th className="text-left p-3">Season</th>
-                        <th className="text-left p-3">Artwork Count</th>
-                        <th className="text-left p-3">Status</th>
-                        <th className="text-left p-3">Created Date</th>
+                        <th className="text-left p-3 cursor-pointer hover:bg-gray-50" onClick={() => handleRegistrationSort('user_id')}>
+                          <div className="flex items-center gap-1">
+                            User ID
+                            <ArrowUpDown className="h-4 w-4" />
+                          </div>
+                        </th>
+                        <th className="text-left p-3 cursor-pointer hover:bg-gray-50" onClick={() => handleRegistrationSort('event_name')}>
+                          <div className="flex items-center gap-1">
+                            Event Name
+                            <ArrowUpDown className="h-4 w-4" />
+                          </div>
+                        </th>
+                        <th className="text-left p-3 cursor-pointer hover:bg-gray-50" onClick={() => handleRegistrationSort('season')}>
+                          <div className="flex items-center gap-1">
+                            Season
+                            <ArrowUpDown className="h-4 w-4" />
+                          </div>
+                        </th>
+                        <th className="text-left p-3 cursor-pointer hover:bg-gray-50" onClick={() => handleRegistrationSort('artwork_count')}>
+                          <div className="flex items-center gap-1">
+                            Artwork Count
+                            <ArrowUpDown className="h-4 w-4" />
+                          </div>
+                        </th>
+                        <th className="text-left p-3 cursor-pointer hover:bg-gray-50" onClick={() => handleRegistrationSort('registration_status')}>
+                          <div className="flex items-center gap-1">
+                            Status
+                            <ArrowUpDown className="h-4 w-4" />
+                          </div>
+                        </th>
+                        <th className="text-left p-3 cursor-pointer hover:bg-gray-50" onClick={() => handleRegistrationSort('created_dt')}>
+                          <div className="flex items-center gap-1">
+                            Created Date
+                            <ArrowUpDown className="h-4 w-4" />
+                          </div>
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
-                      {eventRegistrations.map((registration) => (
+                      {filteredAndSortedRegistrations.map((registration) => (
                         <tr key={registration.event_registration_id} className="border-b hover:bg-gray-50">
                           <td className="p-3 font-mono text-sm">{registration.event_registration_id}</td>
                           <td className="p-3 font-mono text-sm">{registration.user_id}</td>
