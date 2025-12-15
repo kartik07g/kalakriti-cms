@@ -48,7 +48,7 @@ const ParticipantRegistration: React.FC<ParticipantRegistrationProps> = ({
     password: '',
     confirmPassword: '',
     previous_experience: userData?.previous_experience || '',
-    submission: null as File | null,
+    submissions: [] as File[],
     season: '',
     artwork_count: 1
   });
@@ -100,17 +100,24 @@ const ParticipantRegistration: React.FC<ParticipantRegistrationProps> = ({
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
+    if (e.target.files) {
+      const files = Array.from(e.target.files);
       const maxSize = 50 * 1024 * 1024; // 50MB
       
-      if (file.size > maxSize) {
-        toast.error('File size must be less than 50MB');
+      if (files.length !== formData.artwork_count) {
+        toast.error(`Please select exactly ${formData.artwork_count} file(s)`);
         return;
       }
       
-      setFormData(prev => ({ ...prev, submission: file }));
-      toast.success('File uploaded successfully!');
+      for (const file of files) {
+        if (file.size > maxSize) {
+          toast.error('Each file size must be less than 50MB');
+          return;
+        }
+      }
+      
+      setFormData(prev => ({ ...prev, submissions: files }));
+      toast.success(`${files.length} file(s) uploaded successfully!`);
     }
   };
 
@@ -149,8 +156,8 @@ const ParticipantRegistration: React.FC<ParticipantRegistrationProps> = ({
   };
 
   const validateStep2 = () => {
-    if (!formData.submission) {
-      toast.error('Please upload your submission file');
+    if (formData.submissions.length !== formData.artwork_count) {
+      toast.error(`Please upload exactly ${formData.artwork_count} file(s)`);
       return false;
     }
     return true;
@@ -205,7 +212,7 @@ const ParticipantRegistration: React.FC<ParticipantRegistrationProps> = ({
         user_id: userId,
         event_name: eventName,
         season: formData.season,
-        artwork_count: 1
+        artwork_count: formData.artwork_count
       };
       
       const eventRegResponse = await api.post('/event-registrations', eventRegistrationPayload);
@@ -217,32 +224,36 @@ const ParticipantRegistration: React.FC<ParticipantRegistrationProps> = ({
       
       console.log('Event registration ID:', eventRegistrationId);
       
-      // Step 3: Asset Upload (always proceed if we have submission)
-      if (formData.submission) {
-        console.log('Starting asset upload...');
-        const assetType = getAssetType(formData.submission);
-        const assetFormData = new FormData();
-        assetFormData.append('title', eventName);
-        assetFormData.append('asset_type', assetType);
-        assetFormData.append('media_file', formData.submission);
-        assetFormData.append('event_registration_id', eventRegistrationId);
+      // Step 3: Asset Upload (upload all submissions)
+      if (formData.submissions.length > 0) {
+        console.log('Starting asset uploads...');
         
-        console.log('Asset form data:', {
-          title: eventName,
-          asset_type: assetType,
-          media_file: formData.submission.name,
-          event_registration_id: eventRegistrationId
-        });
-        
-        const assetResponse = await api.post('/assets', assetFormData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        });
-        console.log('Asset upload response:', assetResponse.data);
+        for (let i = 0; i < formData.submissions.length; i++) {
+          const file = formData.submissions[i];
+          const assetType = getAssetType(file);
+          const assetFormData = new FormData();
+          assetFormData.append('title', `${eventName} - Artwork ${i + 1}`);
+          assetFormData.append('asset_type', assetType);
+          assetFormData.append('media_file', file);
+          assetFormData.append('event_registration_id', eventRegistrationId);
+          
+          console.log(`Asset ${i + 1} form data:`, {
+            title: `${eventName} - Artwork ${i + 1}`,
+            asset_type: assetType,
+            media_file: file.name,
+            event_registration_id: eventRegistrationId
+          });
+          
+          const assetResponse = await api.post('/assets', assetFormData, {
+            headers: {
+              'Content-Type': 'multipart/form-data',
+            },
+          });
+          console.log(`Asset ${i + 1} upload response:`, assetResponse.data);
+        }
       } else {
         console.log('Asset upload skipped:', {
-          hasSubmission: !!formData.submission,
+          hasSubmissions: formData.submissions.length > 0,
           hasEventRegistrationId: !!eventRegistrationId
         });
       }
@@ -475,39 +486,59 @@ const ParticipantRegistration: React.FC<ParticipantRegistrationProps> = ({
               >
                 <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                   <Upload className="h-5 w-5" />
-                  Upload Submission
+                  Upload Submissions
                 </h3>
+                
+                <div className="mb-4">
+                  <Label htmlFor="artwork_count">Number of Artworks</Label>
+                  <select
+                    id="artwork_count"
+                    name="artwork_count"
+                    value={formData.artwork_count}
+                    onChange={handleInputChange}
+                    className="w-full p-2 border border-gray-300 rounded-md"
+                  >
+                    {[1, 2, 3, 4, 5].map(num => (
+                      <option key={num} value={num}>{num} Artwork{num > 1 ? 's' : ''}</option>
+                    ))}
+                  </select>
+                </div>
                 
                 <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
                   <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                   <div className="mb-4">
-                    <Label htmlFor="submission" className="cursor-pointer">
+                    <Label htmlFor="submissions" className="cursor-pointer">
                       <span className="text-lg font-medium text-kalakriti-primary hover:text-kalakriti-secondary">
-                        Click to upload your submission
+                        Click to upload {formData.artwork_count} file{formData.artwork_count > 1 ? 's' : ''}
                       </span>
                     </Label>
                     <p className="text-sm text-gray-500 mt-2">
                       {eventType === 'dance' || eventType === 'singing' ? 
-                        'Upload video file (max 50MB)' : 
-                        'Upload image file (max 50MB)'}
+                        `Upload ${formData.artwork_count} video file(s) (max 50MB each)` : 
+                        `Upload ${formData.artwork_count} image file(s) (max 50MB each)`}
                     </p>
                   </div>
                   <Input
-                    id="submission"
-                    name="submission"
+                    id="submissions"
+                    name="submissions"
                     type="file"
                     accept={event?.acceptedFiles}
                     onChange={handleFileChange}
+                    multiple={formData.artwork_count > 1}
                     className="hidden"
                   />
-                  {formData.submission && (
-                    <div className="mt-4 p-3 bg-green-50 rounded-lg">
-                      <p className="text-sm text-green-700">
-                        <strong>Selected:</strong> {formData.submission.name}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        Size: {(formData.submission.size / (1024 * 1024)).toFixed(2)} MB
-                      </p>
+                  {formData.submissions.length > 0 && (
+                    <div className="mt-4 space-y-2">
+                      {formData.submissions.map((file, index) => (
+                        <div key={index} className="p-3 bg-green-50 rounded-lg">
+                          <p className="text-sm text-green-700">
+                            <strong>File {index + 1}:</strong> {file.name}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            Size: {(file.size / (1024 * 1024)).toFixed(2)} MB
+                          </p>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
