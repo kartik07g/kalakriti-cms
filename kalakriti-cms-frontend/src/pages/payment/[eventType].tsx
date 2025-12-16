@@ -9,6 +9,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Shield, CreditCard, Lock } from 'lucide-react';
 import { toast } from 'sonner';
+import api from '@/lib/axios';
+
+declare global {
+  interface Window {
+    Razorpay: any;
+  }
+}
 
 const eventPricing = {
   art: { name: 'Art Competition', fee: 500, color: 'from-red-500 to-pink-600' },
@@ -36,6 +43,17 @@ const PaymentPage = () => {
     // Check if user is authenticated
     const token = localStorage.getItem('kalakriti-token');
     setIsAuthenticated(!!token);
+    
+    // Load Razorpay script
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    script.onerror = () => console.warn('Razorpay script loaded with warnings');
+    document.body.appendChild(script);
+    
+    return () => {
+      document.body.removeChild(script);
+    };
   }, []);
 
   if (!event) {
@@ -57,52 +75,130 @@ const PaymentPage = () => {
     }
 
     try {
-      // Simulate payment processing
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const token = localStorage.getItem('kalakriti-token');
       
-      // Generate contestant ID
-      const contestantId = generateContestantId(eventType);
+      // Create Razorpay order
+      const orderResponse = await api.post(
+        '/v1/backend/payment/create-order',
+        {
+          event_name: `Kalakriti ${event.name}`,
+          season: JSON.parse(localStorage.getItem('kalakriti-submission-data') || '{}').season || '1',
+          artwork_count: numberOfArtworks,
+          amount: totalAmount
+        }
+      );
+
+      const { order_id, amount, currency, key } = orderResponse.data;
+
+      // Initialize Razorpay
+      const options = {
+        key,
+        amount,
+        currency,
+        name: 'Kalakriti Events',
+        description: `Payment for ${event.name}`,
+        order_id,
+        handler: async (response: any) => {
+          try {
+            toast.loading('Processing registration... Please wait', { id: 'registration' });
+            
+            // Verify payment
+            const verifyResponse = await api.post(
+              '/v1/backend/payment/verify',
+              {
+                payment_id: response.razorpay_payment_id,
+                order_id: response.razorpay_order_id,
+                signature: response.razorpay_signature,
+                event_name: `Kalakriti ${event.name}`,
+                season: JSON.parse(localStorage.getItem('kalakriti-submission-data') || '{}').season || '1',
+                artwork_count: numberOfArtworks
+              }
+            );
+            
+            // Upload assets after successful payment
+            const tempFiles = window.kalakritTempFiles || [];
+            
+            if (tempFiles.length > 0) {
+              try {
+                for (let i = 0; i < tempFiles.length; i++) {
+                  const file = tempFiles[i];
+                  
+                  // Upload asset
+                  const assetFormData = new FormData();
+                  assetFormData.append('media_file', file);
+                  assetFormData.append('title', `${event.name} - Artwork ${i + 1}`);
+                  assetFormData.append('asset_type', eventType || 'art');
+                  assetFormData.append('event_registration_id', verifyResponse.data.registration_id);
+                  
+                  await api.post(
+                    '/v1/backend/assets',
+                    assetFormData,
+                    {
+                      headers: {
+                        'Content-Type': 'multipart/form-data'
+                      }
+                    }
+                  );
+                }
+                
+                // Clean up stored files
+                delete window.kalakritTempFiles;
+                sessionStorage.removeItem('kalakriti-files-metadata');
+                localStorage.removeItem('kalakriti-submission-data');
+                
+              } catch (error) {
+                console.error('Asset upload failed:', error);
+              }
+            }
+            
+            localStorage.setItem('kalakriti-payment-success', JSON.stringify({
+              eventType,
+              numberOfArtworks,
+              totalAmount,
+              paymentId: response.razorpay_payment_id,
+              registrationId: verifyResponse.data.registration_id
+            }));
+            
+            toast.success('Registration completed! Redirecting to dashboard...', { id: 'registration' });
+            
+            // Redirect to dashboard
+            setTimeout(() => {
+              navigate('/dashboard');
+            }, 1500);
+            
+          } catch (error) {
+            toast.error('Payment verification failed', { id: 'registration' });
+          }
+        },
+        prefill: {
+          name: JSON.parse(localStorage.getItem('kalakriti-user') || '{}').full_name || '',
+          email: JSON.parse(localStorage.getItem('kalakriti-user') || '{}').email || '',
+          contact: JSON.parse(localStorage.getItem('kalakriti-user') || '{}').phone_number || ''
+        },
+        theme: {
+          color: '#3399cc'
+        }
+      };
+
+      if (!window.Razorpay) {
+        throw new Error('Razorpay script not loaded');
+      }
       
-      // Store payment success info
-      localStorage.setItem('kalakriti-payment-success', JSON.stringify({
-        eventType,
-        numberOfArtworks,
-        totalAmount,
-        contestantId,
-        paymentId: 'PAY_' + Date.now()
-      }));
-      
-      toast.success('Payment successful! Redirecting to submission form...');
-      
-      // Redirect to submission form
-      setTimeout(() => {
-        navigate(`/submission/${eventType}?contestantId=${contestantId}`);
-      }, 1500);
+      const rzp = new window.Razorpay(options);
+      rzp.on('payment.failed', function (response: any) {
+        toast.error('Payment failed: ' + response.error.description);
+      });
+      rzp.open();
       
     } catch (error) {
-      toast.error('Payment failed. Please try again.');
+      console.error('Payment initiation error:', error);
+      toast.error('Failed to initiate payment: ' + (error.response?.data?.detail || error.message));
     } finally {
       setLoading(false);
     }
   };
 
-  const generateContestantId = (eventType: string) => {
-    const eventCodes = {
-      art: 'A',
-      photography: 'P',
-      mehndi: 'M',
-      rangoli: 'R',
-      dance: 'D',
-      singing: 'S'
-    };
-    
-    const season = 'S1';
-    const eventCode = eventCodes[eventType as keyof typeof eventCodes];
-    const year = '25';
-    const participantNumber = String(Math.floor(Math.random() * 9999) + 1).padStart(3, '0');
-    
-    return `${season}${eventCode}${year}${participantNumber}`;
-  };
+
 
   return (
     <div className="min-h-screen flex flex-col">

@@ -31,7 +31,7 @@ const QueriesManagement = () => {
 
   const loadQueries = async () => {
     try {
-      const response = await api.get('/contact-us');
+      const response = await api.get('/v1/backend/contact-us');
       const queriesData = response.data.contact_us || [];
       setQueries(queriesData.sort((a: Query, b: Query) => 
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
@@ -44,7 +44,7 @@ const QueriesManagement = () => {
 
   const deleteQuery = async (queryId: number) => {
     try {
-      await api.delete(`/contact-us/${queryId}`);
+      await api.delete(`/v1/backend/contact-us/${queryId}`);
       setQueries(queries.filter(q => q.id !== queryId));
       toast.success('Query deleted successfully');
     } catch (error) {

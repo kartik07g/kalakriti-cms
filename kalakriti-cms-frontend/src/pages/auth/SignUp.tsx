@@ -86,7 +86,7 @@ const SignUp = () => {
       };
       
       // API call to signup endpoint
-      const response = await api.post('/signup', payload);
+      const response = await api.post('/v1/backend/signup', payload);
       
       const result = response.data;
       

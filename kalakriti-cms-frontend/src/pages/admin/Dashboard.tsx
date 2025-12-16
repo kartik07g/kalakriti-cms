@@ -108,7 +108,7 @@ const AdminDashboard = () => {
   const fetchUsers = async () => {
     try {
       const token = localStorage.getItem('kalakriti-admin-token');
-      const response = await api.get('/users', {
+      const response = await api.get('/v1/backend/users', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -123,7 +123,7 @@ const AdminDashboard = () => {
   const fetchEventRegistrations = async () => {
     try {
       const token = localStorage.getItem('kalakriti-admin-token');
-      const response = await api.get('/event-registrations', {
+      const response = await api.get('/v1/backend/event-registrations', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -138,7 +138,7 @@ const AdminDashboard = () => {
   const fetchEvents = async () => {
     try {
       const token = localStorage.getItem('kalakriti-admin-token');
-      const response = await api.get('/events', {
+      const response = await api.get('/v1/backend/events', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -153,7 +153,7 @@ const AdminDashboard = () => {
   const updateEvent = async (eventId: string, updatedData: any) => {
     try {
       const token = localStorage.getItem('kalakriti-admin-token');
-      await api.patch(`/events/${eventId}`, updatedData, {
+      await api.patch(`/v1/backend/events/${eventId}`, updatedData, {
         headers: {
           'Authorization': `Bearer ${token}`
         }

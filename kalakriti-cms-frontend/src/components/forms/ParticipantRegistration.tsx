@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -32,6 +33,7 @@ const ParticipantRegistration: React.FC<ParticipantRegistrationProps> = ({
   eventColor,
   onClose
 }) => {
+  const navigate = useNavigate();
   // Check if user is logged in
   const isLoggedIn = !!localStorage.getItem('kalakriti-token');
   const userData = isLoggedIn ? JSON.parse(localStorage.getItem('kalakriti-user') || '{}') : null;
@@ -50,7 +52,7 @@ const ParticipantRegistration: React.FC<ParticipantRegistrationProps> = ({
     previous_experience: userData?.previous_experience || '',
     submissions: [] as File[],
     season: '',
-    artwork_count: 1
+    artwork_count: parseInt(localStorage.getItem('kalakriti-selected-artworks') || '1')
   });
   const [currentSeason, setCurrentSeason] = useState('');
   const [paymentProcessing, setPaymentProcessing] = useState(false);
@@ -62,12 +64,12 @@ const ParticipantRegistration: React.FC<ParticipantRegistrationProps> = ({
   useEffect(() => {
     const fetchCurrentSeason = async () => {
       try {
-        const response = await api.get('/events');
+        const response = await api.get('/v1/backend/events');
         const events = response.data.events || [];
         const activeEvent = events.find((e: any) => e.event_name === eventName);
         if (activeEvent?.season) {
           setCurrentSeason(activeEvent.season);
-          setFormData(prev => ({ ...prev, season: activeEvent.season }));
+          setFormData(prev => ({ ...prev, season: localStorage.getItem('kalakriti-event-season') || activeEvent.season }));
         }
       } catch (error) {
         console.error('Failed to fetch current season:', error);
@@ -175,8 +177,6 @@ const ParticipantRegistration: React.FC<ParticipantRegistrationProps> = ({
     setPaymentProcessing(true);
     
     try {
-      let userId = null;
-      
       // Step 1: Signup if not logged in
       if (!isLoggedIn) {
         const signupPayload = {
@@ -191,8 +191,7 @@ const ParticipantRegistration: React.FC<ParticipantRegistrationProps> = ({
           previous_experience: formData.previous_experience || null
         };
         
-        const signupResponse = await api.post('/signup', signupPayload);
-        userId = signupResponse.data.user.user_id;
+        const signupResponse = await api.post('/v1/backend/signup', signupPayload);
         
         // Store auth token and user data
         if (signupResponse.data.access_token) {
@@ -201,66 +200,40 @@ const ParticipantRegistration: React.FC<ParticipantRegistrationProps> = ({
         if (signupResponse.data.user) {
           localStorage.setItem('kalakriti-user', JSON.stringify(signupResponse.data.user));
         }
-      } else {
-        // Get user_id from stored user data
-        const storedUser = JSON.parse(localStorage.getItem('kalakriti-user') || '{}');
-        userId = storedUser.user_id;
       }
       
-      // Step 2: Event Registration
-      const eventRegistrationPayload = {
-        user_id: userId,
-        event_name: eventName,
-        season: formData.season,
-        artwork_count: formData.artwork_count
-      };
+      // Store files temporarily (will be uploaded after payment)
+      const fileData = new FormData();
+      formData.submissions.forEach((file, index) => {
+        fileData.append(`file_${index}`, file);
+      });
       
-      const eventRegResponse = await api.post('/event-registrations', eventRegistrationPayload);
-      console.log('Event registration response:', eventRegResponse.data);
+      // Store submission metadata
+      localStorage.setItem('kalakriti-submission-data', JSON.stringify({
+        artwork_count: formData.artwork_count,
+        eventName,
+        eventType,
+        fileCount: formData.submissions.length,
+        season: localStorage.getItem('kalakriti-event-season') || '1'
+      }));
       
-      // Extract event registration ID from the correct location
-      const responseData = eventRegResponse.data;
-      let eventRegistrationId = responseData.registration?.event_registration_id;
+      // Store file metadata only (not the actual files)
+      const fileMetadata = formData.submissions.map(file => ({
+        name: file.name,
+        size: file.size,
+        type: file.type
+      }));
       
-      console.log('Event registration ID:', eventRegistrationId);
+      sessionStorage.setItem('kalakriti-files-metadata', JSON.stringify(fileMetadata));
       
-      // Step 3: Asset Upload (upload all submissions)
-      if (formData.submissions.length > 0) {
-        console.log('Starting asset uploads...');
-        
-        for (let i = 0; i < formData.submissions.length; i++) {
-          const file = formData.submissions[i];
-          const assetType = getAssetType(file);
-          const assetFormData = new FormData();
-          assetFormData.append('title', `${eventName} - Artwork ${i + 1}`);
-          assetFormData.append('asset_type', assetType);
-          assetFormData.append('media_file', file);
-          assetFormData.append('event_registration_id', eventRegistrationId);
-          
-          console.log(`Asset ${i + 1} form data:`, {
-            title: `${eventName} - Artwork ${i + 1}`,
-            asset_type: assetType,
-            media_file: file.name,
-            event_registration_id: eventRegistrationId
-          });
-          
-          const assetResponse = await api.post('/assets', assetFormData, {
-            headers: {
-              'Content-Type': 'multipart/form-data',
-            },
-          });
-          console.log(`Asset ${i + 1} upload response:`, assetResponse.data);
-        }
-      } else {
-        console.log('Asset upload skipped:', {
-          hasSubmissions: formData.submissions.length > 0,
-          hasEventRegistrationId: !!eventRegistrationId
-        });
-      }
+      // Store actual files in a temporary global variable
+      window.kalakritTempFiles = formData.submissions;
       
-      setRegistrationComplete(true);
-      setParticipantId(userId);
-      toast.success('Registration completed successfully!');
+      // Close modal and redirect to payment
+      onClose();
+      
+      const totalAmount = (event?.fee || 150) * formData.artwork_count;
+      navigate(`/payment/${eventType}?artworks=${formData.artwork_count}&amount=${totalAmount}`);
       
     } catch (error: any) {
       console.error('Registration error:', error);
@@ -490,18 +463,11 @@ const ParticipantRegistration: React.FC<ParticipantRegistrationProps> = ({
                 </h3>
                 
                 <div className="mb-4">
-                  <Label htmlFor="artwork_count">Number of Artworks</Label>
-                  <select
-                    id="artwork_count"
-                    name="artwork_count"
-                    value={formData.artwork_count}
-                    onChange={handleInputChange}
-                    className="w-full p-2 border border-gray-300 rounded-md"
-                  >
-                    {[1, 2, 3, 4, 5].map(num => (
-                      <option key={num} value={num}>{num} Artwork{num > 1 ? 's' : ''}</option>
-                    ))}
-                  </select>
+                  <Label>Number of Artworks</Label>
+                  <div className="p-3 bg-gray-100 rounded-md">
+                    <span className="font-medium">{formData.artwork_count} Artwork{formData.artwork_count > 1 ? 's' : ''}</span>
+                    <span className="text-sm text-gray-600 ml-2">(₹{150 * formData.artwork_count})</span>
+                  </div>
                 </div>
                 
                 <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
@@ -572,13 +538,17 @@ const ParticipantRegistration: React.FC<ParticipantRegistrationProps> = ({
                       <span className="font-medium">{formData.full_name}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>Registration Fee:</span>
-                      <span className="font-medium">₹{event?.fee}</span>
+                      <span>Registration Fee per Artwork:</span>
+                      <span className="font-medium">₹150</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Number of Artworks:</span>
+                      <span className="font-medium">{formData.artwork_count}</span>
                     </div>
                     <div className="border-t pt-3">
                       <div className="flex justify-between text-lg font-bold">
                         <span>Total Amount:</span>
-                        <span>₹{event?.fee}</span>
+                        <span>₹{150 * formData.artwork_count}</span>
                       </div>
                     </div>
                   </CardContent>
@@ -605,7 +575,7 @@ const ParticipantRegistration: React.FC<ParticipantRegistrationProps> = ({
                   disabled={paymentProcessing}
                   className={`bg-gradient-to-r ${eventColor} text-white`}
                 >
-                  {paymentProcessing ? 'Registering...' : 'Complete Registration'}
+                  {paymentProcessing ? 'Processing...' : 'Proceed to Payment'}
                 </Button>
               )}
             </div>

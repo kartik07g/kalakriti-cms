@@ -23,7 +23,7 @@ const UserDashboard = () => {
   const fetchUserData = async (userId: string) => {
     try {
       const token = localStorage.getItem('kalakriti-token');
-      const response = await api.get(`/users?user_id=${userId}`, {
+      const response = await api.get(`/v1/backend/users?user_id=${userId}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -90,7 +90,7 @@ const UserDashboard = () => {
       console.log('Request payload:', JSON.stringify(updatedFields));
       
       const token = localStorage.getItem('kalakriti-token');
-      await api.patch(`/user/${userData.user_id}`, updatedFields, {
+      await api.patch(`/v1/backend/user/${userData.user_id}`, updatedFields, {
         headers: {
           'Authorization': `Bearer ${token}`
         }

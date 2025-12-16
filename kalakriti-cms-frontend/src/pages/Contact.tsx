@@ -56,7 +56,7 @@ const Contact = () => {
       };
       
       // API call to contact-us endpoint
-      const response = await api.post('/contact-us', payload);
+      const response = await api.post('/v1/backend/contact-us', payload);
       
       const result = response.data;
       

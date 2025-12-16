@@ -77,7 +77,7 @@ const ResultUpload: React.FC<ResultUploadProps> = ({ eventTypes, eventNames, par
       formData.append('event_name', selectedEvent);
       formData.append('season', selectedSeason);
 
-      const response = await api.post('/results/upload-csv', formData, {
+      const response = await api.post('/v1/backend/results/upload-csv', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },

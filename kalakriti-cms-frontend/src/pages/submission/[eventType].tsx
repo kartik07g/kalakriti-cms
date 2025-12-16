@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Upload, CheckCircle, Mail, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import api from '@/lib/axios';
 
 const eventDetails = {
   art: { name: 'Art Competition', color: 'from-red-500 to-pink-600', fileTypes: 'Images (JPG, PNG, PDF)' },
@@ -55,15 +56,35 @@ const SubmissionForm = () => {
     // Check if payment was successful
     const paymentSuccess = localStorage.getItem('kalakriti-payment-success');
     if (!paymentSuccess) {
+      toast.error('Payment required to access submission form');
       navigate('/');
       return;
     }
 
     const paymentData = JSON.parse(paymentSuccess);
+    const submissionData = JSON.parse(localStorage.getItem('kalakriti-submission-data') || '{}');
+    
     setFormData(prev => ({
       ...prev,
       numberOfArtworks: paymentData.numberOfArtworks
     }));
+    
+    // Pre-fill user data if available
+    const userData = JSON.parse(localStorage.getItem('kalakriti-user') || '{}');
+    if (userData.full_name) {
+      const [firstName, ...lastNameParts] = userData.full_name.split(' ');
+      setFormData(prev => ({
+        ...prev,
+        firstName: firstName || '',
+        lastName: lastNameParts.join(' ') || '',
+        email: userData.email || '',
+        phone: userData.phone_number || '',
+        age: userData.age || '',
+        address: userData.address || '',
+        city: userData.city || '',
+        state: userData.state || ''
+      }));
+    }
   }, [navigate]);
 
   if (!event) {
@@ -108,22 +129,27 @@ const SubmissionForm = () => {
     setLoading(true);
 
     try {
-      // Simulate form submission
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      const token = localStorage.getItem('kalakriti-token');
+      const paymentData = JSON.parse(localStorage.getItem('kalakriti-payment-success') || '{}');
       
-      // Store submission data
-      const submissionData = {
-        contestantId,
-        eventType,
-        ...formData,
-        files: files.map(f => f.name),
-        submittedAt: new Date().toISOString()
-      };
-      
-      localStorage.setItem('kalakriti-submission', JSON.stringify(submissionData));
-      localStorage.removeItem('kalakriti-payment-success');
+      // Upload assets
+      for (const file of files) {
+        const assetFormData = new FormData();
+        assetFormData.append('media_file', file);
+        assetFormData.append('title', formData.artworkTitle || file.name);
+        assetFormData.append('asset_type', eventType || 'art');
+        assetFormData.append('event_registration_id', paymentData.registrationId);
+        
+        await api.post('/v1/backend/assets', assetFormData, {
+          headers: {
+            'Content-Type': 'multipart/form-data'
+          }
+        });
+      }
       
       setSubmitted(true);
+      localStorage.removeItem('kalakriti-payment-success');
+      localStorage.removeItem('kalakriti-submission-data');
       toast.success('Submission successful! Check your email for confirmation.');
       
     } catch (error) {
@@ -147,7 +173,7 @@ const SubmissionForm = () => {
             <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
             <h1 className="text-2xl font-bold mb-2">Submission Successful!</h1>
             <p className="text-gray-600 mb-4">
-              Your contestant ID is: <span className="font-mono font-bold text-blue-600">{contestantId}</span>
+              Your submission has been recorded successfully.
             </p>
             <p className="text-sm text-gray-500 mb-6">
               A confirmation email has been sent to your registered email address with your contestant ID and further instructions.
@@ -190,9 +216,7 @@ const SubmissionForm = () => {
               <Badge className="mb-4">Submission Form</Badge>
               <h1 className="text-3xl font-bold mb-2">Submit Your Artwork</h1>
               <p className="text-gray-600">Kalakriti {event.name}</p>
-              <p className="text-sm text-gray-500 mt-2">
-                Contestant ID: <span className="font-mono font-bold">{contestantId}</span>
-              </p>
+
             </div>
 
             <Card className="shadow-lg">

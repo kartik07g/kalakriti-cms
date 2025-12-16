@@ -44,7 +44,7 @@ const Login = () => {
       setLoading(true);
       
       // API call to signin endpoint
-      const response = await api.post('/signin', {
+      const response = await api.post('/v1/backend/signin', {
         email: formData.email,
         password: formData.password
       });

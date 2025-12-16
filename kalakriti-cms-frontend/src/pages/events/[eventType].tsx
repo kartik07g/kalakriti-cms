@@ -180,9 +180,7 @@ const EventDetails = () => {
   }
 
   const handleParticipateNow = () => {
-    const totalAmount = staticEvent.entryFee * selectedArtworks;
-    // Redirect to payment page with selected artworks
-    navigate(`/payment/${eventType}?artworks=${selectedArtworks}&amount=${totalAmount}`);
+    setShowRegistration(true);
   };
 
   return (
@@ -190,7 +188,7 @@ const EventDetails = () => {
       <Navbar />
       
       {/* Hero Section */}
-      <section className={`relative pt-20 pb-12 md:pb-20 bg-gradient-to-br ${event.theme} text-white overflow-hidden`}>
+      <section className={`relative pt-20 pb-12 md:pb-20 bg-gradient-to-br ${staticEvent.theme} text-white overflow-hidden`}>
         <div className="absolute inset-0 bg-black/20"></div>
         <div className="container mx-auto px-4 relative z-10">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
@@ -273,7 +271,7 @@ const EventDetails = () => {
       </section>
 
       {/* Event Details */}
-      <section className={`py-12 md:py-20 ${event.bgColor}`}>
+      <section className={`py-12 md:py-20 ${staticEvent.bgColor}`}>
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Main Content */}
@@ -351,7 +349,11 @@ const EventDetails = () => {
                 <Button 
                   className={`w-full bg-gradient-to-r ${staticEvent.theme} hover:opacity-90 text-white`}
                   size="lg"
-                  onClick={() => setShowRegistration(true)}
+                  onClick={() => {
+                    localStorage.setItem('kalakriti-selected-artworks', selectedArtworks.toString());
+                    localStorage.setItem('kalakriti-event-season', apiEvent?.season || '1');
+                    handleParticipateNow();
+                  }}
                 >
                   Register & Participate Now
                 </Button>

@@ -5,3 +5,14 @@ docker-compose exec -it backend alembic upgrade head
 
 *********************************
 new Events tab in admin panel with season, start and end date control
+
+razorpay test creds
+
+test api key : rzp_test_Rs9tddKgc6tDB2
+Test Key Secret : QDl22J2n76GRUItmoYY1CmxT
+
+
+
+self.smtp_username = "kalakritievents07@gmail.com"
+        self.smtp_password = "dfbh fcfr vbrl nrsa"
+        self.from_email = "kalakritievents07@gmail.com"

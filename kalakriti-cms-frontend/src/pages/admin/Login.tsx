@@ -37,7 +37,7 @@ const AdminLogin = () => {
     setLoading(true);
 
     try {
-      const response = await api.post('/signin', {
+      const response = await api.post('/v1/backend/signin', {
         email: credentials.email,
         password: credentials.password
       });

@@ -7,6 +7,7 @@ from Resources.Assets import asset_router
 from Resources.Results import result_router
 from Resources.ContactUs import contact_us_router
 from Resources.Events import event_router
+from Resources.Payment import payment_router
 
 
 # Create FastAPI app instance
@@ -41,4 +42,5 @@ app.include_router(asset_router)
 app.include_router(result_router)
 app.include_router(contact_us_router)
 app.include_router(event_router)
+app.include_router(payment_router)
 

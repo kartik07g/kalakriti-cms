@@ -3,7 +3,7 @@ import api from '@/lib/axios';
 
 export const getEvents = async () => {
   try {
-    const response = await api.get('/events');
+    const response = await api.get('/v1/backend/events');
     return response.data;
   } catch (error) {
     console.error('Failed to fetch events:', error);
@@ -18,7 +18,7 @@ export const eventsApi = {
   
   getByType: async (eventType: string) => {
     try {
-      const response = await api.get(`/events/${eventType}`);
+      const response = await api.get(`/v1/backend/events/${eventType}`);
       return response.data;
     } catch (error) {
       console.error('Failed to fetch event:', error);
