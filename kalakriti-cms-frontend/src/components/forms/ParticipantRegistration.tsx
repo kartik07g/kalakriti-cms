@@ -191,14 +191,26 @@ const ParticipantRegistration: React.FC<ParticipantRegistrationProps> = ({
           previous_experience: formData.previous_experience || null
         };
         
-        const signupResponse = await api.post('/v1/backend/signup', signupPayload);
-        
-        // Store auth token and user data
-        if (signupResponse.data.access_token) {
-          localStorage.setItem('kalakriti-token', signupResponse.data.access_token);
-        }
-        if (signupResponse.data.user) {
-          localStorage.setItem('kalakriti-user', JSON.stringify(signupResponse.data.user));
+        try {
+          const signupResponse = await api.post('/v1/backend/signup', signupPayload);
+          
+          // Store auth token and user data
+          if (signupResponse.data.access_token) {
+            localStorage.setItem('kalakriti-token', signupResponse.data.access_token);
+          }
+          if (signupResponse.data.user) {
+            localStorage.setItem('kalakriti-user', JSON.stringify(signupResponse.data.user));
+          }
+        } catch (signupError: any) {
+          if (signupError.response?.status === 400 && signupError.response?.data?.detail?.includes('already exists')) {
+            toast.error('Email already registered. Please login to participate.');
+            setTimeout(() => {
+              onClose();
+              navigate('/auth/login?redirect=payment');
+            }, 2000);
+            return;
+          }
+          throw signupError;
         }
       }
       

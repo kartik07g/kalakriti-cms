@@ -19,6 +19,7 @@ const UserDashboard = () => {
   const [originalUserData, setOriginalUserData] = useState<any>(null);
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [hasParticipated, setHasParticipated] = useState(false);
+  const [eventRegistrations, setEventRegistrations] = useState<any[]>([]);
 
   const fetchUserData = async (userId: string) => {
     try {
@@ -39,6 +40,15 @@ const UserDashboard = () => {
     }
   };
 
+  const fetchEventRegistrations = async (userId: string) => {
+    try {
+      const response = await api.get(`/v1/backend/event-registrations?user_id=${userId}`);
+      setEventRegistrations(response.data.event_registrations || []);
+    } catch (error) {
+      console.error('Failed to fetch event registrations:', error);
+    }
+  };
+
   useEffect(() => {
     // Load user data from localStorage
     const storedUser = localStorage.getItem('kalakriti-user');
@@ -51,6 +61,7 @@ const UserDashboard = () => {
       // Fetch latest user data from API if user_id exists
       if (user.user_id) {
         fetchUserData(user.user_id);
+        fetchEventRegistrations(user.user_id);
       }
     }
     
@@ -462,8 +473,8 @@ const UserDashboard = () => {
                 <div>
                   <CardTitle className="flex items-center gap-2">
                     My Submissions
-                    {submissions.length > 0 && (
-                      <Badge variant="secondary">{submissions.length}</Badge>
+                    {eventRegistrations.length > 0 && (
+                      <Badge variant="secondary">{eventRegistrations.length}</Badge>
                     )}
                   </CardTitle>
                   <CardDescription>
@@ -481,9 +492,9 @@ const UserDashboard = () => {
               </div>
             </CardHeader>
             <CardContent>
-              {submissions.length > 0 ? (
+              {eventRegistrations.length > 0 ? (
                 <div className="space-y-4">
-                  {submissions.map((submission, index) => (
+                  {eventRegistrations.map((registration, index) => (
                     <div 
                       key={index}
                       className="p-4 border-2 rounded-lg hover:border-blue-300 hover:shadow-md transition-all"
@@ -491,24 +502,27 @@ const UserDashboard = () => {
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
-                            <h4 className="font-semibold text-lg">{submission.title}</h4>
+                            <h4 className="font-semibold text-lg">{registration.event_name}</h4>
                             <Badge variant="outline" className="capitalize">
-                              {submission.eventType}
+                              {registration.registration_status}
                             </Badge>
                           </div>
-                          <p className="text-sm text-gray-600 mb-3">{submission.description}</p>
                           <div className="flex flex-wrap gap-3 text-xs">
                             <span className="flex items-center text-blue-600 bg-blue-50 px-2 py-1 rounded">
                               <Award className="h-3 w-3 mr-1" />
-                              {submission.contestantId || 'Processing'}
+                              {registration.event_registration_id}
                             </span>
                             <span className="flex items-center text-green-600 bg-green-50 px-2 py-1 rounded">
                               <Calendar className="h-3 w-3 mr-1" />
-                              {new Date(submission.submittedAt).toLocaleDateString()}
+                              {new Date(registration.created_dt).toLocaleDateString()}
                             </span>
                             <span className="flex items-center text-purple-600 bg-purple-50 px-2 py-1 rounded">
                               <FileText className="h-3 w-3 mr-1" />
-                              {submission.files?.length || submission.numberOfArtworks} artwork(s)
+                              Season {registration.season}
+                            </span>
+                            <span className="flex items-center text-orange-600 bg-orange-50 px-2 py-1 rounded">
+                              <FileText className="h-3 w-3 mr-1" />
+                              {registration.artwork_count} artwork(s)
                             </span>
                           </div>
                         </div>
