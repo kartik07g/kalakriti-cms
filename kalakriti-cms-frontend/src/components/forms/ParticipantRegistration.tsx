@@ -244,7 +244,7 @@ const ParticipantRegistration: React.FC<ParticipantRegistrationProps> = ({
       // Close modal and redirect to payment
       onClose();
       
-      const totalAmount = (event?.fee || 150) * formData.artwork_count;
+      const totalAmount = formData.artwork_count === 1 ? 150 : formData.artwork_count === 2 ? 250 : formData.artwork_count === 3 ? 350 : formData.artwork_count === 4 ? 450 : 550;
       navigate(`/payment/${eventType}?artworks=${formData.artwork_count}&amount=${totalAmount}`);
       
     } catch (error: any) {
@@ -560,7 +560,7 @@ const ParticipantRegistration: React.FC<ParticipantRegistrationProps> = ({
                     <div className="border-t pt-3">
                       <div className="flex justify-between text-lg font-bold">
                         <span>Total Amount:</span>
-                        <span>₹{150 * formData.artwork_count}</span>
+                        <span>₹{formData.artwork_count === 1 ? 150 : formData.artwork_count === 2 ? 250 : formData.artwork_count === 3 ? 350 : formData.artwork_count === 4 ? 450 : 550}</span>
                       </div>
                     </div>
                   </CardContent>

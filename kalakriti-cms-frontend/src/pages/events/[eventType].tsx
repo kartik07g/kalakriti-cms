@@ -342,7 +342,7 @@ const EventDetails = () => {
                   
                   <div className="flex justify-between text-base md:text-lg font-bold border-t pt-4">
                     <span>Total Amount:</span>
-                    <span>₹{staticEvent.entryFee * selectedArtworks}</span>
+                    <span>₹{selectedArtworks === 1 ? 150 : selectedArtworks === 2 ? 250 : selectedArtworks === 3 ? 350 : selectedArtworks === 4 ? 450 : 550}</span>
                   </div>
                 </div>
                 

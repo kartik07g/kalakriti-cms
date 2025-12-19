@@ -84,7 +84,7 @@ const PaymentPage = () => {
           event_name: `Kalakriti ${event.name}`,
           season: JSON.parse(localStorage.getItem('kalakriti-submission-data') || '{}').season || '1',
           artwork_count: numberOfArtworks,
-          amount: totalAmount
+          amount: (numberOfArtworks === 1 ? 150 : numberOfArtworks === 2 ? 250 : numberOfArtworks === 3 ? 350 : numberOfArtworks === 4 ? 450 : 550) + 30 + 20
         }
       );
 
@@ -235,13 +235,21 @@ const PaymentPage = () => {
                   <span className="font-medium">{numberOfArtworks}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Fee per Artwork:</span>
-                  <span className="font-medium">₹{event.fee}</span>
+                  <span>Submission Fee:</span>
+                  <span className="font-medium">₹{numberOfArtworks === 1 ? 150 : numberOfArtworks === 2 ? 250 : numberOfArtworks === 3 ? 350 : numberOfArtworks === 4 ? 450 : 550}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Convenience Fee:</span>
+                  <span className="font-medium">₹30</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Platform Fee:</span>
+                  <span className="font-medium">₹20</span>
                 </div>
                 <div className="border-t pt-4">
                   <div className="flex justify-between text-lg font-bold">
                     <span>Total Amount:</span>
-                    <span>₹{totalAmount}</span>
+                    <span>₹{(numberOfArtworks === 1 ? 150 : numberOfArtworks === 2 ? 250 : numberOfArtworks === 3 ? 350 : numberOfArtworks === 4 ? 450 : 550) + 30 + 20}</span>
                   </div>
                 </div>
               </CardContent>
@@ -289,7 +297,7 @@ const PaymentPage = () => {
                       Processing Payment...
                     </>
                   ) : (
-                    `Pay ₹${totalAmount}`
+                    `Pay ₹${(numberOfArtworks === 1 ? 150 : numberOfArtworks === 2 ? 250 : numberOfArtworks === 3 ? 350 : numberOfArtworks === 4 ? 450 : 550) + 30 + 20}`
                   )}
                 </Button>
 

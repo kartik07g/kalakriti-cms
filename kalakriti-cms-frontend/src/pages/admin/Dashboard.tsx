@@ -507,30 +507,7 @@ const AdminDashboard = () => {
                         className="pl-10"
                       />
                     </div>
-                    <select
-                      value={selectedEvent}
-                      onChange={(e) => setSelectedEvent(e.target.value)}
-                      className="px-3 py-2 border border-gray-300 rounded-md bg-white"
-                    >
-                      <option value="all">All Competitions</option>
-                      {eventTypes.map(type => (
-                        <option key={type} value={type}>
-                          {eventNames[type as keyof typeof eventNames]}
-                        </option>
-                      ))}
-                    </select>
-                    <select
-                      value={selectedSeason}
-                      onChange={(e) => setSelectedSeason(e.target.value)}
-                      className="px-3 py-2 border border-gray-300 rounded-md bg-white"
-                    >
-                      <option value="all">All Seasons</option>
-                      {getAvailableSeasons().filter(s => s !== 'all').map(season => (
-                        <option key={season} value={season}>
-                          Season {season}
-                        </option>
-                      ))}
-                    </select>
+
                     <Button
                       onClick={exportToExcel}
                       variant="outline"
@@ -552,12 +529,10 @@ const AdminDashboard = () => {
                       <tr className="border-b">
                         <th className="text-left p-3">ID</th>
                         <th className="text-left p-3">Name</th>
-                        <th className="text-left p-3">Competition</th>
                         <th className="text-left p-3">Email</th>
                         <th className="text-left p-3">Phone</th>
                         <th className="text-left p-3">City</th>
                          <th className="text-left p-3">Status</th>
-                         <th className="text-left p-3">Artwork</th>
                          <th className="text-left p-3">Actions</th>
                       </tr>
                     </thead>
@@ -566,11 +541,6 @@ const AdminDashboard = () => {
                         <tr key={user.user_id} className="border-b hover:bg-gray-50">
                           <td className="p-3 font-mono text-sm">{user.user_id}</td>
                           <td className="p-3 font-medium">{user.full_name}</td>
-                          <td className="p-3">
-                            <Badge variant="outline">
-                              User
-                            </Badge>
-                          </td>
                           <td className="p-3 text-sm text-gray-600">{user.email}</td>
                           <td className="p-3 text-sm text-gray-600">{user.phone_number}</td>
                           <td className="p-3 text-sm text-gray-600">{user.city}</td>
@@ -578,9 +548,6 @@ const AdminDashboard = () => {
                              <Badge variant="default">
                                Active
                              </Badge>
-                           </td>
-                           <td className="p-3">
-                             <span className="text-gray-400 text-sm">-</span>
                            </td>
                            <td className="p-3">
                              <Button 
